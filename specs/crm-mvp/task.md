@@ -7,7 +7,7 @@
 
 - **Modo:** ASK_EACH_TASK, elegido explícitamente en el pedido inicial: “vamos a trabajar tarea por tarea” y “no te vas a mandar a hacer todas las tareas iniciales de una”. No se pregunta nuevamente por el modo.
 - **Aprobación del plan:** APPROVE_CURRENT_PLAN, SPEC-1/PLAN-1. Respuesta del usuario al pedido de aprobación: “Dale comenza con la task-001” (2026-10-07). Incluye inicio exclusivo de TASK-001 y los commits locales propuestos por unidad revisada.
-- **Estado de preparación:** CHECKING, DESIGN-2 aprobado, verificado y revisado; entrega documental de TASK-002 en curso. TASK-003 y siguientes permanecen TODO.
+- **Estado de preparación:** WAITING_FOR_USER, TASK-002 completada con DESIGN-2 aprobado, verificado y revisado. TASK-003 y siguientes permanecen TODO.
 - **Primera tarea del plan:** TASK-001, completada con su autorización consumida. Cada siguiente tarea requiere continuación explícita.
 - **TDD:** ON por pedido del usuario. Para comportamiento: prueba significativa, RED observado, implementación mínima, GREEN y refactor. Setup y diseño son N/A; no se fabrican tests ni evidencias RED/GREEN.
 - **Roles:** Orchestrator conserva decisiones y documentos. Un único Implementer escribe aplicación. Se detiene antes de comprobaciones/revisión independientes; Reviewer revisa cada unidad sustancial. Autenticación, autorización, transacciones, migraciones e instalación requieren verificación independiente adicional.
@@ -57,7 +57,7 @@ Preparar Next.js App Router con TypeScript, Tailwind y convenciones para shadcn/
 
 ### TASK-002 — Diseño de las pantallas en Pencil
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-002, AC-011
+**Estado:** DONE · **Criterios:** AC-002, AC-011 (diseño)
 
 Designer inspecciona el archivo existente y define login, navegación, dashboard, panel kanban/tabla y formulario con los campos acordados. Incluye escritorio/móvil y estados vacío, carga, error y conflicto. Entrega nodos editables y solicita revisión a través del Orchestrator.
 
@@ -66,7 +66,7 @@ Designer inspecciona el archivo existente y define login, navegación, dashboard
 - **Terminada cuando:** el usuario aprueba la versión exacta y Designer verifica que sus nodos siguen correspondiendo a la aprobación y criterios.
 - **Checks:** consultas textuales de nodos, layout, dimensiones, textos y estados; revisión del usuario en el documento real. TDD N/A.
 - **Unidad:** WU-002, nodos editables, líneas no aplicables. El archivo ya está ignorado: no afirmar un commit de diseño. Orchestrator registra IDs/aprobación en este plan; Delivery puede incluir sólo esa actualización de documentación autorizada.
-- **Resultado actual:** DESIGN_APPROVED, DESIGN-2 guardado en `E:/Freelance/Nexovate-CRM/crm-nexovate.pen`, aprobado visualmente y verificado después de aprobación; Designer detenido y Reviewer APPROVED. Entrega documental pendiente: tarea todavía IN_PROGRESS, sin commit de diseño. Se conservan 14 pantallas, cuatro atlas de estados, tres componentes reutilizables y 20 raíces contando el frame inicial blanco/vacío `bi8Au` (800×600).
+- **Resultado actual:** DONE, DESIGN_APPROVED. DESIGN-2 guardado en `E:/Freelance/Nexovate-CRM/crm-nexovate.pen`, aprobado visualmente y verificado después de aprobación; Designer detenido y Reviewer APPROVED. WU-002 documental entregada en commit local verificado `06e809fea227ca8e1f026a51d01874b71cb4bbec` (`docs: record approved CRM design`), padre `6000e85bc10a8bd8e93bd4797ece6a8fc93d55e6`: única ruta este plan, 20 adiciones y 6 eliminaciones. Pencil ignorado, sin commit de diseño ni cambios de aplicación. Se conservan 14 pantallas, cuatro atlas de estados, tres componentes reutilizables y 20 raíces contando el frame inicial blanco/vacío `bi8Au` (800×600).
 - **Guardado DESIGN-1 verificado:** ante ausencia de Save nativo documentado, el usuario confirmó “Ya guardé el documento en esa ruta”. Metadata observada: 626.350 bytes, 2026-10-07 19:57:08, frente al baseline 315 bytes/18:52:07. Designer consultó de nuevo mediante `execute` con el filePath exacto y confirmó las mismas 20 raíces, IDs, dimensiones y tema sin mutaciones. La persistencia se apoya en recibo del usuario y metadata; Get confirma el documento vivo, no una recarga desde disco (no API reload documentada). Después de los ajustes DESIGN-2, metadata permanece en 626.350 bytes/19:57:08: no extender el recibo anterior a esta revisión. Guardado solicitado al usuario.
 - **Pantallas DESIGN-2 (IDs conservados de DESIGN-1; escritorio / móvil):** login `xMkjY` / `NQqFz`; dashboard `XG4yp` / `Z4avcU`; kanban `Y13jn` / `vPRAZ`; tabla `tk9VI` / `FBMNw`; nuevo cliente `rx3yq` / `GR2eT`; editar cliente `sShbV` / `LtlWO`; filtros `GjJkU` / `fjBZ8`. Escritorios en y=800, móviles en y=2200; dashboard escritorio x=1540, kanban x=3368. Viewport no modificado: no hay API textual documentada de encuadre.
 - **Componentes y estados:** componentes `d9lgV` (botones `bA1Jp`/`RBX9B`, tarjeta `zxVXd`); atlas acceso/validación `R7TJoX`, cartera/recuperación `Vh4hi`, dashboard `Ct9eY`, móvil `sRMT2`, en y=4100. Incluyen carga, vacío, sin resultados, errores de credenciales/guardado/consulta, validación, rollback y conflicto con recarga confirmada. Datos ficticios etiquetados, sin funcionalidad runtime afirmada.
@@ -169,8 +169,8 @@ Pendiente verificar en la tarea pertinente: nodos Pencil, nombres de variables s
 
 ## Siguiente paso
 
-- **Próxima tarea:** TASK-002 — Diseño de las pantallas en Pencil; depende de TASK-001 aceptada, ya satisfecha.
-- **Continuación:** Cierre exclusivo de TASK-002 tras aprobación de DESIGN-2; no iniciar TASK-003.
-- **Decisión del usuario:** “Si ahora lo veo perfecto, continua con las task-002” (2026-10-07). Aprueba la versión exacta DESIGN-2 y autoriza completar esta tarea.
-- **Consumida por:** Designer verificación posterior de DESIGN-2, seguida de Reviewer y Delivery documental. Las operaciones remotas siguen sin autorización.
+- **Próxima tarea:** TASK-003 — Datos, autorización e historial consistente; TASK-001 y TASK-002 aceptadas. Antes de implementar SQL se requiere verificar un entorno PostgreSQL aislado y runner real.
+- **Continuación:** PENDING, esperar autorización explícita para TASK-003; estado TODO. No preparar la siguiente tarea en segundo plano.
+- **Decisión anterior consumida:** “Si ahora lo veo perfecto, continua con las task-002” (2026-10-07) aprobó DESIGN-2 y autorizó completar exclusivamente TASK-002. Designer verificó el estado aprobado, Reviewer APPROVED y Delivery confirmó el commit documental.
+- **Límite:** operaciones remotas, provisión de usuarios, migraciones a Supabase y deploy siguen sin autorización.
 - **Memoria de esta revisión:** la identidad de runtime dejó de estar registrada después de compactación; escrituras de memoria suspendidas según el hook del host. Este plan conserva el handoff y el checkpoint, sin inventar una sesión.
