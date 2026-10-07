@@ -7,8 +7,8 @@
 
 - **Modo:** ASK_EACH_TASK, elegido explícitamente en el pedido inicial: “vamos a trabajar tarea por tarea” y “no te vas a mandar a hacer todas las tareas iniciales de una”. No se pregunta nuevamente por el modo.
 - **Aprobación del plan:** APPROVE_CURRENT_PLAN, SPEC-1/PLAN-1. Respuesta del usuario al pedido de aprobación: “Dale comenza con la task-001” (2026-10-07). Incluye inicio exclusivo de TASK-001 y los commits locales propuestos por unidad revisada.
-- **Estado de preparación:** CHECKING, TASK-001; escritor detenido y las siguientes tareas permanecen TODO.
-- **Primera tarea propuesta:** TASK-001. Aprobar PLAN-1 permite iniciar únicamente esa tarea; cada siguiente requiere continuación explícita.
+- **Estado de preparación:** WAITING_FOR_USER; TASK-001 terminada, TASK-002 y siguientes permanecen TODO.
+- **Primera tarea del plan:** TASK-001, completada con su autorización consumida. Cada siguiente tarea requiere continuación explícita.
 - **TDD:** ON por pedido del usuario. Para comportamiento: prueba significativa, RED observado, implementación mínima, GREEN y refactor. Setup y diseño son N/A; no se fabrican tests ni evidencias RED/GREEN.
 - **Roles:** Orchestrator conserva decisiones y documentos. Un único Implementer escribe aplicación. Se detiene antes de comprobaciones/revisión independientes; Reviewer revisa cada unidad sustancial. Autenticación, autorización, transacciones, migraciones e instalación requieren verificación independiente adicional.
 - **Diseño:** TASK-002 entrega Pencil para revisión; aprobación exacta y verificación de nodos requerida antes de UI material.
@@ -19,7 +19,7 @@ Baseline de preparación verificado: `E:/Freelance/Nexovate-CRM`, rama `master`,
 
 El baseline contiene `.agents/`, `.codex/`, `.gitignore` y `AGENTS.md` sin seguimiento Git; `.env` y `crm-nexovate.pen` ya existen y están ignorados. No se ha leído el contenido del `.env` ni del Pencil. Workflow, AGENTS, secretos y Pencil quedan fuera del commit; `.gitignore` está autorizado por TASK-001 y conserva sus reglas preexistentes al agregar los ignorados de la aplicación.
 
-Se aprobó una sola rama de requisito `feature/crm-mvp`, en el checkout actual, preparada por Implementer Delivery. Al no existir HEAD, el primer commit tendrá base vacía; no hay SHA de origen que registrar todavía. No crear ramas por tarea ni worktrees. Un commit local por unidad coherente después de checks y revisión, mediante staging de rutas seleccionadas; autoridad concedida en la respuesta del usuario del 2026-10-07.
+Se aprobó una sola rama de requisito `feature/crm-mvp`, en el checkout actual, preparada por Implementer Delivery. WU-001 quedó en el primer commit `092b23df66503c0c2ba4c92b7509d1dc861ff0b6`, sin padres ni SHA de origen. No crear ramas por tarea ni worktrees. Un commit local por unidad coherente después de checks y revisión, mediante staging de rutas seleccionadas; autoridad concedida en la respuesta del usuario del 2026-10-07.
 
 Las unidades forman una sola entrega local del MVP. Push, PR, merge, configuración/migraciones/usuarios remotos y deploy no están autorizados por este plan. Vercel se prepara documentalmente en TASK-008; la publicación posterior tendrá su propia autorización y destino verificado.
 
@@ -42,7 +42,7 @@ Playwright tendrá screenshots, video y trace desactivados; no usar snapshots vi
 
 ### TASK-001 — Base Next.js y entorno TDD
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-001
+**Estado:** DONE · **Criterios:** AC-001
 
 Preparar Next.js App Router con TypeScript, Tailwind y convenciones para shadcn/ui, junto a Vitest, Testing Library y Playwright. Registrar versiones concretas compatibles y fijar dependencias localmente. Crear scripts y documentación de ejecución. Mantener la base mínima, sin construir todavía las pantallas funcionales.
 
@@ -51,7 +51,7 @@ Preparar Next.js App Router con TypeScript, Tailwind y convenciones para shadcn/
 - **Terminada cuando:** instalación local y build reproducibles, tipos/lint correctos, configuración de runners documentada y validada sin pruebas artificiales. Diagnóstico SQL/browser explícito; no afirmar suites de negocio verdes antes de crearlas.
 - **Checks:** lint, typecheck y build; inspección de configuraciones y descubrimiento de runners. TDD N/A para setup.
 - **Unidad:** WU-001, configuración propia estimada 260–330 líneas / 12–20 archivos, confianza media; ajuste de diagnóstico SQL/browser y documentación de suites todavía ausentes, sin cambio de alcance. Scaffold, componentes copiados y lockfile separados. Commit candidato `chore: bootstrap Next.js and test tooling`.
-- **Resultado:** WU-001 implementada, escritor detenido; verificación independiente COMPLETED y Reviewer APPROVED, sin hallazgos. Commit local pendiente. Candidato: 20 archivos de setup, 329 líneas propias, 7 líneas de tipos Next generadas y 8.610 de lockfile; más estos documentos de planificación.
+- **Resultado:** WU-001 aceptada y commit local verificado `092b23df66503c0c2ba4c92b7509d1dc861ff0b6` (`chore: bootstrap Next.js and test tooling`); verificación independiente COMPLETED y Reviewer APPROVED, sin hallazgos. Commit de 22 rutas: 20 archivos de setup y dos documentos del plan. Numstat raíz: 331 líneas finales de setup (329 nuevas más dos reglas preexistentes de `.gitignore`), 7 líneas de tipos Next generadas, 8.610 de lockfile y 268 de planificación, total 9.216 adiciones. Workflow, AGENTS, secretos y Pencil fuera de staging; índice vacío verificado.
 - **Evidencia aceptada:** writer `npm install` y `npm ci` exit 0 (453 paquetes); independiente lint/typecheck/build/npm ls exit 0, navegador Edge real y smoke de producción HTTP 200/heading DOM correctos, servidor cerrado (0 listeners en 3000). Operaciones Next/browser necesitaron escalación exacta por permisos Windows. Vitest y E2E discovery sin suites, exit 1 esperado; SQL diagnóstico exit 1 y ninguna conexión/mutación. Esos resultados no son GREEN de negocio. Runners y fuentes revisados por Reviewer con digest agregado `b12fd1135c48902648edfccfea7fe6e17d8e9aa004cdae3ce9a7287bcb55bb8d`.
 - **Límite observado:** Next generó un bloque managed en AGENTS durante el primer dev; retirado con función oficial, `agentRules: false` evita nueva escritura. Hash AGENTS estable durante segundo dev y verificación: `286E15EBA990C4A9CD0385CF967628B7865C876532E0FFD45FD04E936E2B0995`; no existe hash histórico previo al primer dev. El único cambio automático durante verificación fue `next-env.d.ts` de tipos dev a producción, revisado en su versión final (blob `ce4e94a6b10f160ee021fe18939af160d2927dcf`).
 
@@ -156,7 +156,7 @@ Pendiente verificar en la tarea pertinente: nodos Pencil, nombres de variables s
 
 ## Siguiente paso
 
-- **Próxima tarea:** TASK-001 — Base Next.js y entorno TDD.
-- **Continuación:** CONTINUE_TASK para TASK-001.
-- **Decisión del usuario:** “Dale comenza con la task-001”, después de presentar SPEC-1/PLAN-1 e incluir commits locales revisados.
-- **Consumida por:** Implementer TASK-001; no autoriza TASK-002 ni operaciones remotas. Delivery verificó `feature/crm-mvp` unborn e índice vacío antes de iniciar el escritor.
+- **Próxima tarea:** TASK-002 — Diseño de las pantallas en Pencil; depende de TASK-001 aceptada, ya satisfecha.
+- **Continuación:** PENDING; seguir, revisar el resultado o pausar según decisión del usuario.
+- **Decisión del usuario:** pendiente para TASK-002. La autorización “Dale comenza con la task-001” fue consumida exclusivamente por la tarea terminada.
+- **Consumida por:** nadie para TASK-002; todos los trabajadores detenidos. Las operaciones remotas siguen sin autorización.
