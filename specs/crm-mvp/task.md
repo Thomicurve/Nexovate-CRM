@@ -7,7 +7,7 @@
 
 - **Modo:** ASK_EACH_TASK, elegido explícitamente en el pedido inicial: “vamos a trabajar tarea por tarea” y “no te vas a mandar a hacer todas las tareas iniciales de una”. No se pregunta nuevamente por el modo.
 - **Aprobación del plan:** APPROVE_CURRENT_PLAN, SPEC-1/PLAN-1. Respuesta del usuario al pedido de aprobación: “Dale comenza con la task-001” (2026-10-07). Incluye inicio exclusivo de TASK-001 y los commits locales propuestos por unidad revisada.
-- **Estado de preparación:** CHECKING, TASK-006 aceptada y lista para Delivery local. Caso real completo y repetición independiente PASS, limpieza confirmada en ambas, Reviewer final APPROVED sin hallazgos. WU-008 permanece IN_PROGRESS hasta verificar su commit; TASK-007 y siguientes TODO bajo ASK_EACH_TASK. Runs fallidos y recuperación excepcional documentados por separado, sin fixtures pendientes.
+- **Estado de preparación:** WAITING_FOR_USER. TASK-006 DONE, WU-008 entregada en commit local verificado `7697ae05639adb0a55cfb30c3d9b10c73353c598`. Pruebas reales y repetición independiente PASS, limpieza confirmada y Reviewer APPROVED sin hallazgos. TASK-007 y siguientes TODO bajo ASK_EACH_TASK; sin fixtures pendientes.
 - **Primera tarea del plan:** TASK-001, completada con su autorización consumida. Cada siguiente tarea requiere continuación explícita.
 - **TDD:** ON por pedido del usuario. Para comportamiento: prueba significativa, RED observado, implementación mínima, GREEN y refactor. Setup y diseño son N/A; no se fabrican tests ni evidencias RED/GREEN.
 - **Roles:** Orchestrator conserva decisiones y documentos. Un único Implementer escribe aplicación. Se detiene antes de comprobaciones/revisión independientes; Reviewer revisa cada unidad sustancial. Autenticación, autorización, transacciones, migraciones e instalación requieren verificación independiente adicional.
@@ -215,7 +215,7 @@ Crear el panel de clientes con tabla, formulario de alta/edición y filtros comb
 
 ### TASK-006 — Kanban, drag and drop y cambio de vista
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-007 (vistas), AC-008, AC-011 (kanban)
+**Estado:** DONE · **Criterios:** AC-007 (vistas), AC-008, AC-011 (kanban)
 
 Agregar la vista inicial kanban con seis columnas y alternancia a tabla. Reutilizar consultas, filtros, formulario y operaciones de TASK-005. Integrar drag and drop accesible con confirmación de persistencia y restauración del estado correcto ante fallo.
 
@@ -254,6 +254,8 @@ Agregar la vista inicial kanban con seis columnas y alternancia a tabla. Reutili
 
 - **Aceptación final WU-008:** Reviewer final APPROVED / STOPPED, sin hallazgos. Confirmó digest19 `376ce5e6c3fd071fe2ebc3c91c39a246dc6ce83ba94dc7a9f67d9fb5cbd0431d`, helper intacto, aplicación/SQL/Auth sin cambios durante reparaciones y delta del harness/README revisada. AC-007 (vistas), AC-008 y AC-011 (kanban) cubiertos con TDD, checks locales, ejecución real y repetición independiente fresca. Pérdida de respuesta, replay y conflicto probados; fuente/diseño y configuración conservados. READY_TO_CONTINUE exclusivamente hacia commit local `feat: add client kanban and view switch`, 19 fuentes revisadas más este plan; no push/PR/merge/deploy/otra tarea. TASK-006 todavía IN_PROGRESS hasta commit verificado.
 
+- **Entrega WU-008 y cierre TASK-006:** commit local verificado `7697ae05639adb0a55cfb30c3d9b10c73353c598` (`feat: add client kanban and view switch`), padre `828386d262bd7dfe9c332561e79a8a8f0f33973c`, rama `feature/crm-mvp`. Exactamente 20 rutas: 19 fuentes revisadas y este plan, +868/-48 (fuentes +829/-36; plan +39/-12), blobs y modos100644 coincidentes con candidato aceptado. Orchestrator confirmó SHA/padre/título/status; índice vacío y tracked limpios. Workflow/AGENTS/secretos/Pencil preservados fuera del commit. AC-007/008/011 del alcance aceptados, dos casos reales completos PASS con readback de cinco tablas vacías, configuración conservada, pruebas locales165/11 y revisión sin hallazgos. TASK-006 DONE; feature WAITING_FOR_USER, TASK-007 TODO. Sin push/PR/merge/deploy ni autorización de la siguiente tarea.
+
 ### TASK-007 — Dashboard con métricas históricas
 
 **Estado:** TODO · **Criterios:** AC-009, AC-010, AC-011 (dashboard)
@@ -290,8 +292,8 @@ Diseño Pencil, entorno SQL local aislado y configuración/cuentas/permisos Supa
 
 ## Siguiente paso
 
-- **Tarea actual:** TASK-006 — Kanban, drag and drop y cambio de vista, IN_PROGRESS, conexión Pencil recuperada y mapping actual en curso; WU-008 lógica/TDD preparado y fuentes preservadas. TASK-005 aceptada con commits9ccde4d/2691ed4 y cierre828386d; no repetir proof intacto de SQL/Auth/CRUD sin cambios.
-- **Continuación:** “dale, continuemos con las task-006”, CONTINUE_TASK TASK-006 consumida; ASK_EACH_TASK mantiene TASK-007TODO y exige otra continuación al cierre.
-- **Diseño:** DESIGN-2 ya aprobado; mappingKanban actual pendiente reconexión Pencil desktop. Solicitud abrir documento existente E:/Freelance/Nexovate-CRM/crm-nexovate.pen, sin pedir nueva aprobación. Lógica/pruebas independientes terminadas, ImplementerSTOPPED. Segundo intento readonly de conexión tras esa fase volvió a fallar -32603; DesignerSTOPPED. Usuario respondió “fijate, ahora deberia estar disponible pencil”; nueva lectura nativa conectada/GetPrint confirmó Y13jn1728×1050 yvPRAZ390×1150. Mapping actual completo y DesignerSTOPPED, candidato localUI terminado e ImplementerSTOPPED; verificación independiente local/procedimiento en curso. ProcedimientoTASK006 revisado y aprobado técnicamente; permiso humano específico solicitado antes de persistenciaDndreal/fixtures y repetición independiente. Respuesta explícita recibida “Dale, hace la prueba real en supabase”, consumir sólo lifecycleTASK006 revisado y repetición independiente/max2fixturesporrun; no reutilizar grantTASK005 ni ampliar a otra tarea/configuración. MismaTASK006 autorizada, sin otra continuación ni reaprobación DESIGN-2.
-- **Autoridad:** SPEC-1/PLAN-1/TDDON y commits locales revisados, dependenciaTASK-005 cumplida. No push/PR/merge/deploy/DDL/config/AuthTTL. PermisosfixturesTASK-005 completos no se extienden a TASK-006; preparar/revisar lifecycle concreto antes de solicitar permiso nuevo y ejecutarlo.
+- **Tarea completada:** TASK-006 — Kanban, drag and drop y cambio de vista, DONE, commit WU-008 `7697ae05639adb0a55cfb30c3d9b10c73353c598`. Pruebas locales, dos ejecuciones reales completas y revisión aceptadas; limpieza confirmada, sin datos de prueba pendientes.
+- **Próxima tarea lista:** TASK-007 — Dashboard con métricas históricas, TODO. Dependencias TASK-003/004/006 aceptadas y DESIGN-2 aprobado. Agregar totales y series de Contactados/Reuniones agendadas/Cerrados con rango y agrupación día/mes/año, sobre primeros hitos y zona Buenos Aires.
+- **Checkpoint:** ASK_EACH_TASK, WAITING_FOR_USER. Elegir continuar con TASK-007, revisar TASK-006 o pausar. La continuación y permiso remoto de TASK-006 se consumieron; no autorizan otra tarea ni nuevas pruebas remotas.
+- **Autoridad:** SPEC-1/PLAN-1/TDD ON y commits locales de unidades revisadas vigentes. Push/PR/merge/deploy y nuevos cambios de Supabase conservan permiso concreto independiente.
 - **Memoria:** runtime sin registro autorizado; escrituras de memoria suspendidas por hook. Conservar continuidad local sin inventar sesión.
