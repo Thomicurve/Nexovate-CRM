@@ -1,11 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ClientList } from "@/components/clients/client-list";
 import { parseFilters } from "@/lib/clients/filters";
 import { confirmed } from "./fixture";
+vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", desde: "2026-10-07" });
+const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", desde: "2026-10-07", vista: "tabla" });
 if (!parsed.ok) throw new Error("valid fixture filters");
 const filters = parsed.filters;
 describe("client table and filter accessibility", () => {
@@ -30,14 +32,14 @@ describe("client table and filter accessibility", () => {
     await user.click(screen.getByRole("checkbox", { name: "Cerrado" }));
     expect(screen.getByRole("checkbox", { name: "Contactado" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Cerrado" })).toBeChecked();
-    expect(screen.getByRole("link", { name: "Limpiar filtros" })).toHaveAttribute("href", "/clientes");
+    expect(screen.getByRole("link", { name: "Limpiar filtros" })).toHaveAttribute("href", "/clientes?vista=tabla");
     expect(screen.getByRole("button", { name: "Aplicar filtros" })).toHaveAttribute("type", "submit");
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("region", { name: "Filtrar clientes" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Filtros/ })).toHaveFocus();
   });
   it("distinguishes empty CRM, no matches, invalid range and unavailable query", () => {
-    const empty = parseFilters({});
+    const empty = parseFilters({ vista: "tabla" });
     if (!empty.ok) throw new Error("valid filters");
     const { rerender } = render(<ClientList result={{ kind: "found", filters: empty.filters, rows: [], count: 0 }} />);
     expect(screen.getByText("Todavía no hay clientes.")).toBeInTheDocument();
@@ -52,8 +54,8 @@ describe("client table and filter accessibility", () => {
   it("paginates beyond the API page while preserving every applied filter", () => {
     render(<ClientList result={{ kind: "found", filters: { ...filters, page: 2 }, rows: [confirmed], count: 101 }} />);
     const navigation = screen.getByRole("navigation", { name: "Páginas de clientes" });
-    expect(within(navigation).getByRole("link", { name: "Anterior" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07");
-    expect(within(navigation).getByRole("link", { name: "Siguiente" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&pagina=3");
+    expect(within(navigation).getByRole("link", { name: "Anterior" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&vista=tabla");
+    expect(within(navigation).getByRole("link", { name: "Siguiente" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&pagina=3&vista=tabla");
     expect(screen.getByRole("link", { name: "Editar Confirmado" })).toHaveAttribute("href", expect.stringContaining("pagina%3D2"));
   });
   it("offers a keyboard-accessible first-page recovery with filters and no fabricated empty result", async () => {
@@ -64,7 +66,7 @@ describe("client table and filter accessibility", () => {
     expect(screen.queryByText("No hay clientes que coincidan con los filtros.")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Páginas de clientes" })).not.toBeInTheDocument();
     const recovery = screen.getByRole("link", { name: "Volver a la primera página" });
-    expect(recovery).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07");
+    expect(recovery).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&vista=tabla");
     for (let index = 0; index < 20 && document.activeElement !== recovery; index++) await user.tab();
     expect(recovery).toHaveFocus();
   });

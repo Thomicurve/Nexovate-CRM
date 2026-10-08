@@ -6,11 +6,15 @@ import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import { isClient, UUID, type Client } from "../../src/lib/clients/model";
 import { recoverFixtures, finishLiveRun, type TrackedRequest } from "./clients-live-recovery";
+import { runKanbanLiveFlow } from "./kanban-live-flow";
 
 // Explicitly privileged fixture mode. This case is absent from ordinary runs;
 // focusing this file without the flag fails discovery, rather than reporting skip.
-if (process.env.CRM_CLIENTS_LIVE_WRITE === "1") {
-  test("authorized two-client CRUD fixtures with guarded exact cleanup", async ({ browser }) => {
+const kanbanRun = process.env.CRM_KANBAN_LIVE_WRITE === "1";
+if (kanbanRun && process.env.CRM_CLIENTS_LIVE_WRITE === "1") throw new Error("Choose one authorized fixture mode per run");
+if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun) {
+  test(kanbanRun ? "authorized TASK-006 Kanban fixtures with guarded exact cleanup" :
+    "authorized two-client CRUD fixtures with guarded exact cleanup", async ({ browser }) => {
     test.setTimeout(120_000);
     const names = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ACCESS_TOKEN",
       "CRM_LIVE_PROJECT_REF", "CRM_OWNER_EMAIL", "CRM_PARTNER_EMAIL", "CRM_OWNER_PASSWORD", "CRM_PARTNER_PASSWORD"];
@@ -51,6 +55,7 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1") {
       { email: env.CRM_PARTNER_EMAIL!, password: env.CRM_PARTNER_PASSWORD! }];
     const actorIds: string[] = [], requests: TrackedRequest[] = [];
     const fixtures = new Map<string, Client>();
+    // TASK-006 uses the legacy fixture namespace to preserve the reviewed recovery guard unchanged.
     const prefix = `WU006-${randomUUID()}`;
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
     const request = (index: number, id: string = randomUUID(), clientId: string | null = null) => {
@@ -191,19 +196,23 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1") {
       const replay = await users[1].rpc("create_client", { p_request_id: secondId, p_payload: payload });
       expect(replay.error === null && replay.data?.id === second.data?.id && replay.data?.version === 1).toBe(true);
       expect(fixtures.size).toBe(2);
+      if (kanbanRun) {
+        stage = "TASK-006 Kanban procedure";
+        await runKanbanLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures });
+      } else {
       stage = "shared table and combined filter reads";
-      await page.goto("/clientes");
+      await page.goto("/clientes?vista=tabla");
       const table = page.getByRole("table", { name: "Clientes" });
-      await expect(page.getByLabel("Nombre", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Filtros de clientes" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(table.locator("tbody tr")).toHaveCount(2);
       await expect(table.getByText(`${prefix}-partner-update`, { exact: true })).toBeVisible();
       await expect(table.getByText(payload.name, { exact: true })).toBeVisible();
       // Case-insensitive partial matching and literal regex/PostgREST metacharacters.
-      await page.goto(`/clientes?nombre=${encodeURIComponent(literalName.toUpperCase())}`);
+      await page.goto(`/clientes?nombre=${encodeURIComponent(literalName.toUpperCase())}&vista=tabla`);
       await expect(table.locator("tbody tr")).toHaveCount(1);
       await expect(table.getByText(payload.name, { exact: true })).toBeVisible();
-      const combined = new URLSearchParams({ nombre: prefix.toUpperCase(), desde: "2026-10-07", hasta: "2026-10-07" });
+      const combined = new URLSearchParams({ nombre: prefix.toUpperCase(), desde: "2026-10-07", hasta: "2026-10-07", vista: "tabla" });
       combined.append("estado", "Reunión agendada"); combined.append("estado", "Cerrado");
       const returnPath = `/clientes?${combined}`;
       const assertReturnFilters = () => expect([...new URL(page.url()).searchParams].sort()).toEqual([...combined].sort());
@@ -256,12 +265,13 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1") {
       await panel.getByLabel("Desde", { exact: true }).fill("2026-10-08");
       await panel.getByRole("button", { name: "Aplicar filtros" }).click();
       await expect(page.locator('section [role="alert"]')).toContainText("rango de fechas");
-      await page.goto(`/clientes?nombre=${encodeURIComponent(prefix)}&estado=Sin+respuesta`);
+      await page.goto(`/clientes?nombre=${encodeURIComponent(prefix)}&estado=Sin+respuesta&vista=tabla`);
       await expect(page.getByText("No hay clientes que coincidan con los filtros.")).toBeVisible();
       await page.getByRole("button", { name: "Filtros de clientes" }).click();
       await panel.getByRole("link", { name: "Limpiar filtros" }).click();
-      await expect(page).toHaveURL(/\/clientes$/);
+      await expect(page).toHaveURL(/\/clientes\?vista=tabla$/);
       await expect(table.locator("tbody tr")).toHaveCount(2);
+      }
     } catch (error) {
       primaryFailure = new Error(`Live fixture stage: ${stage}`, { cause: error });
     } finally {

@@ -294,13 +294,17 @@ La limpieza administrativa bloquea únicamente esas filas, exige snapshots exact
 ante cambio inesperado. Borra dependencias y ledger sólo de esas identidades de
 fixtures, luego clientes, en una transacción. Un outcome incierto se lee antes de
 cualquier reintento; no usa TRUNCATE/reset ni borra datos anteriores o de terceros.
-La tabla y los filtros de TASK-005 están implementados; kanban queda para TASK-006.
+La tabla y los filtros de TASK-005 están implementados. TASK-006 agrega Kanban como
+vista inicial, con seis columnas en escritorio y una columna seleccionable en móvil.
 
 La lista combina nombre parcial sin distinguir mayúsculas (incluidos caracteres
 literales como `*`, `%` o `[]`), uno o varios estados y fechas de contacto inclusivas
 en Buenos Aires. Usa `nombre`, `estado` repetible, `desde` y `hasta` en la URL.
-La página `pagina` conserva el conjunto al navegar, crear, editar o cancelar;
-aplicar filtros vuelve a la primera página y limpiar vuelve a `/clientes`.
+La página `pagina` y `vista=tabla` (o `vista=kanban`, predeterminada) conservan el
+conjunto al navegar, crear, editar o cancelar. Aplicar filtros vuelve a la primera
+página; limpiar conserva la vista. Ambas vistas usan los mismos 50 clientes y total;
+los conteos de las columnas corresponden sólo a esa página. Estado visible en móvil
+elige una columna sin modificar los filtros.
 La consulta paginada muestra 50 filas por página y obtiene el total exacto;
 una respuesta truncada o sin total se presenta como error, sin ocultar clientes.
 Las fechas calendario se validan desde 1900 y los días con cambios históricos de
@@ -334,3 +338,35 @@ La versión `202610080004`/`rpc_conflict_errors` registra la fuente revisada fie
 historial001–003, función, owner y permisos quedaron verificados. Duración JWT3600,
 signup deshabilitado y las dos membresías permanecen iguales. El caso CRUD requiere
 su permiso explícito de fixtures/limpieza; no borrar por prefijo genérico.
+
+Los movimientos usan `@dnd-kit/core` 6.3.1: puntero o Enter/Espacio para levantar y
+confirmar, flechas izquierda/derecha para cambiar de columna y Escape para cancelar.
+En móvil, Editar permite elegir cualquiera de los seis estados desde el formulario.
+La operación autenticada envía exclusivamente el estado, UUID de solicitud y versión
+esperada. No reconvierte fechas ni sobrescribe otros campos. Una operación pendiente
+bloquea nuevos movimientos y navegación del panel; ante un resultado incierto se
+restaura la tarjeta y se reintenta con la misma intención. Un conflicto recupera la
+versión confirmada y ofrece volver a editar, sin sobrescribir al socio.
+
+El procedimiento real TASK-006 está preparado en `tests/e2e/kanban-live-flow.ts` y
+comparte el harness de `clients-live.spec.ts`. Requiere autorización específica nueva
+antes de habilitar `CRM_KANBAN_LIVE_WRITE=1`; no usar a la vez `CRM_CLIENTS_LIVE_WRITE`.
+Todo el caso crea como máximo dos fixtures. Conserva el prefijo técnico legado WU006
+para reutilizar las guardas exactas de recuperación/limpieza ya revisadas. El parser
+registra intenciones de acciones antes de permitir enviarlas y rechaza sobres
+desconocidos; retries idénticos conservan un único par actor/request. El caso comprueba
+puntero/teclado/cancelación, recarga, pérdida de respuesta después del commit con replay,
+conflicto entre socios, hitos sin duplicados, vistas/filtros y alternativa móvil.
+Con autorización específica, el caso real TASK-006 pasó en Edge (33,5 s): movimientos
+por puntero/teclado y recarga, cancelación y drop fuera sin escrituras, pérdida de
+respuesta después de confirmar el ledger, replay del mismo UUID, conflicto real
+HTTP409/PT409 sin sobrescribir al socio y regreso por etapas sin repetir hitos.
+También comprobó tarjetas móviles de326px en columna358px, edición manual de estado,
+cambio de vista y retorno con filtros. Recuperación, limpieza guardada y cierre de
+sesiones terminaron; readback confirmó las cinco tablas de negocio en cero.
+El harness espera destinos, guardados y navegación confirmados antes de sus lecturas;
+si falla, conserva el último intento de cinco campos en stdout para recuperarlo.
+Una corrida anterior se detuvo correctamente ante un outcome incierto y requirió
+limpieza específica revisada de dos IDs/nueve solicitudes con snapshots y locks;
+no se clasificó como rollback ni se alteraron las guardas. SQL, Auth, permisos,
+duración JWT y configuración de Supabase conservaron sus valores originales.

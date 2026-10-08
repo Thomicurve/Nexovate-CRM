@@ -57,7 +57,7 @@ export function safeReturnPath(value: string) {
   const url = new URL(value, "https://local.invalid"), params: SearchParams = {};
   if (url.pathname !== "/clientes") return "/clientes";
   for (const [key, val] of url.searchParams) {
-    if (!["nombre", "estado", "desde", "hasta", "pagina"].includes(key)) continue;
+    if (!["nombre", "estado", "desde", "hasta", "pagina", "vista"].includes(key)) continue;
     const previous = params[key];
     params[key] = previous === undefined ? val : Array.isArray(previous) ? [...previous, val] : [previous, val];
   }

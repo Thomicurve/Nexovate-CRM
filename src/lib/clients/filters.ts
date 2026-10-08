@@ -2,7 +2,7 @@ import { CLIENT_TIME_ZONE } from "./dates";
 import { STATUSES, type Client, type ClientStatus } from "./model";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
-export type Filters = { name: string; statuses: ClientStatus[]; from: string; until: string;
+export type Filters = { name: string; statuses: ClientStatus[]; from: string; until: string; view: "kanban" | "tabla";
   fromUtc: string | null; untilUtc: string | null; page: number };
 export type ListResult = { kind: "found"; filters: Filters; rows: Client[]; count: number } |
   { kind: "unavailable" | "out_of_range"; filters: Filters } | { kind: "invalid"; message: string };
@@ -40,11 +40,13 @@ function dayStart(date: Date) {
 
 export function parseFilters(params: SearchParams): { ok: true; filters: Filters } | { ok: false; message: string } {
   const invalid = { ok: false as const, message: "Revisá el nombre, los estados y el rango de fechas de los filtros." };
-  if (Object.keys(params).some((key) => !["nombre", "estado", "desde", "hasta", "pagina"].includes(key)) ||
-    ["nombre", "desde", "hasta", "pagina"].some((key) => Array.isArray(params[key]))) return invalid;
+  if (Object.keys(params).some((key) => !["nombre", "estado", "desde", "hasta", "pagina", "vista"].includes(key)) ||
+    ["nombre", "desde", "hasta", "pagina", "vista"].some((key) => Array.isArray(params[key]))) return invalid;
   const name = String(params.nombre ?? "").trim(), from = String(params.desde ?? ""), until = String(params.hasta ?? "");
   const states = params.estado === undefined ? [] : Array.isArray(params.estado) ? params.estado : [params.estado];
   const pageText = String(params.pagina ?? "1"), page = Number(pageText);
+  const view = params.vista ?? "kanban";
+  if (view !== "kanban" && view !== "tabla") return invalid;
   if (name.length > 200 || states.some((state) => !STATUSES.includes(state as ClientStatus)) ||
     !/^[1-9]\d*$/.test(pageText) || !Number.isSafeInteger(page * PAGE_SIZE)) return invalid;
   const fromDate = from ? calendarDay(from) : null, untilDate = until ? calendarDay(until) : null;
@@ -54,7 +56,7 @@ export function parseFilters(params: SearchParams): { ok: true; filters: Filters
   const untilUtc = untilDate ? dayStart(untilDate) : null;
   if (from && !fromUtc || until && !untilUtc) return invalid;
   return { ok: true, filters: { name, statuses: STATUSES.filter((state) => states.includes(state)),
-    from, until, fromUtc, untilUtc, page } };
+    from, until, fromUtc, untilUtc, page, view } };
 }
 
 export function listPath(filters: Filters, page = filters.page) {
@@ -64,5 +66,6 @@ export function listPath(filters: Filters, page = filters.page) {
   if (filters.from) query.set("desde", filters.from);
   if (filters.until) query.set("hasta", filters.until);
   if (page > 1) query.set("pagina", String(page));
+  if (filters.view === "tabla") query.set("vista", "tabla");
   return `/clientes${query.size ? `?${query}` : ""}`;
 }
