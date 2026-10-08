@@ -1,12 +1,42 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render as renderUi, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { NotificationProvider } from "@/components/ui/notifications";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientForm } from "@/components/clients/client-form";
 import type { SaveState } from "@/lib/clients/model";
 import { confirmed, requestId } from "./fixture";
 
 const props = { requestId, initialContact: "2026-10-07T12:30", returnTo: "/clientes?nombre=Socio" };
+const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }) }));
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: NotificationProvider });
 describe("approved client form interaction", () => {
+  beforeEach(() => vi.clearAllMocks());
+  it.each([undefined, confirmed])("returns to safe filtered list only after confirmed save, edit=%s", async (client) => {
+    const action = vi.fn().mockResolvedValue({ status: "success", client: confirmed });
+    render(<ClientForm {...props} client={client} action={action} />);
+    await userEvent.click(screen.getByRole("button", { name: client ? "Guardar cambios" : "Crear cliente" }));
+    await screen.findByRole("button", { name: "Guardado" });
+    expect(navigation.replace).toHaveBeenCalledExactlyOnceWith(props.returnTo);
+    expect(screen.getByRole("status")).toHaveTextContent(client ? "Cliente actualizado" : "Cliente creado");
+    expect(screen.getByRole("status")).toHaveTextContent(confirmed.name);
+    expect(screen.getByRole("button", { name: "Guardado" })).toBeDisabled();
+  });
+  it.each(["error", "invalid", "conflict", "success"])("does not navigate an unconfirmed %s outcome", async (status) => {
+    render(<ClientForm {...props} action={vi.fn().mockResolvedValue({ status, message: "Sin confirmar" })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+    await screen.findByRole("alert");
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+  it("normalizes an unsafe destination and emits one confirmed notification", async () => {
+    render(<ClientForm {...props} returnTo="https://evil.invalid/?guardado=1" action={vi.fn().mockResolvedValue({ status: "success", client: confirmed })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+    await screen.findByRole("button", { name: "Guardado" });
+    expect(navigation.replace).toHaveBeenCalledExactlyOnceWith("/clientes");
+    expect(screen.getAllByText("Cliente creado")).toHaveLength(1);
+  });
   it("renders approved order/labels, create Contactado and optional fields", () => {
     render(<ClientForm {...props} action={vi.fn()} />);
     expect(screen.getByRole("heading", { name: "Nuevo cliente" })).toBeVisible();

@@ -8,14 +8,16 @@ import { isClient, UUID, type Client } from "../../src/lib/clients/model";
 import { recoverFixtures, finishLiveRun, type TrackedRequest } from "./clients-live-recovery";
 import { runKanbanLiveFlow } from "./kanban-live-flow";
 import { runDashboardLiveFlow } from "./dashboard-live-flow";
+import { assertFeedbackSave, assertFeedbackWrite, isClientActionUrl, feedbackFingerprintQuery } from "./client-feedback-guards";
 
 // Explicitly privileged fixture mode. This case is absent from ordinary runs;
 // focusing this file without the flag fails discovery, rather than reporting skip.
 const kanbanRun = process.env.CRM_KANBAN_LIVE_WRITE === "1";
 const dashboardRun = process.env.CRM_DASHBOARD_LIVE_WRITE === "1";
-if ([kanbanRun, dashboardRun, process.env.CRM_CLIENTS_LIVE_WRITE === "1"].filter(Boolean).length > 1) throw new Error("Choose one authorized fixture mode per run");
-if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
-  test(dashboardRun ? "authorized TASK-007 dashboard fixtures with guarded exact cleanup" : kanbanRun ? "authorized TASK-006 Kanban fixtures with guarded exact cleanup" :
+const feedbackRun = process.env.CRM_FEEDBACK_LIVE_WRITE === "1";
+if ([kanbanRun, dashboardRun, feedbackRun, process.env.CRM_CLIENTS_LIVE_WRITE === "1"].filter(Boolean).length > 1) throw new Error("Choose one authorized fixture mode per run");
+if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun || feedbackRun) {
+  test(feedbackRun ? "authorized TASK-009 confirmed feedback and body drag fixtures with guarded exact cleanup" : dashboardRun ? "authorized TASK-007 dashboard fixtures with guarded exact cleanup" : kanbanRun ? "authorized TASK-006 Kanban fixtures with guarded exact cleanup" :
     "authorized two-client CRUD fixtures with guarded exact cleanup", async ({ browser }) => {
     test.setTimeout(120_000);
     const names = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ACCESS_TOKEN",
@@ -46,13 +48,23 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
       "(SELECT count(*) FROM crm_private.client_requests) AS ledger," +
       "(SELECT jsonb_agg(jsonb_build_object('slot',slot,'user_id',user_id) ORDER BY slot) FROM public.crm_members) AS members");
     expect(Number(baseline[0].users) === 2 && baseline[0].members.length === 2 &&
-      ["clients", "transitions", "milestones", "corrections", "ledger"].every((key) => Number(baseline[0][key]) === 0),
-      "Only the reviewed empty CRM baseline is allowed").toBe(true);
-    const userClient = () => createClient(url.origin, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+      (feedbackRun || ["clients", "transitions", "milestones", "corrections", "ledger"].every((key) => Number(baseline[0][key]) === 0)),
+      "Expected two members; legacy fixture modes require the reviewed empty CRM").toBe(true);
+    const foreignBaseline = feedbackRun ? await read(feedbackFingerprintQuery([])) : null;
+    const userClient = (index: number) => createClient(url.origin, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15_000) }) },
+      global: { fetch: async (input, init) => {
+        if (feedbackRun) {
+          const outgoing = new Request(input, init);
+          if (/\/rest\/v1\/rpc\/(create|update)_client$/.test(new URL(outgoing.url).pathname)) {
+            const args = await outgoing.json();
+            assertFeedbackWrite(actorIds[index], args.p_request_id, args.p_client_id ?? null, args.p_payload?.name, prefix, requests, fixtures);
+          }
+        }
+        return fetch(input, { ...init, signal: AbortSignal.timeout(15_000) });
+      } },
     });
-    const users = [userClient(), userClient()];
+    const users = [userClient(0), userClient(1)];
     const accounts = [{ email: env.CRM_OWNER_EMAIL!, password: env.CRM_OWNER_PASSWORD! },
       { email: env.CRM_PARTNER_EMAIL!, password: env.CRM_PARTNER_PASSWORD! }];
     const actorIds: string[] = [], requests: TrackedRequest[] = [];
@@ -63,11 +75,16 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
     const request = (index: number, id: string = randomUUID(), clientId: string | null = null) => {
       if (!UUID.test(id) || !UUID.test(actorIds[index]) || clientId !== null && !UUID.test(clientId))
         throw new Error("Invalid fixture request identity");
+      if (feedbackRun && (clientId !== null && !fixtures.has(clientId) || clientId === null && requests.filter((row) => row.clientId === null).length >= 2))
+        throw new Error("Foreign fixture target or third creation; blocked before execution");
       requests.push({ actor: actorIds[index], id, clientId }); return id;
     };
     const remember = (row: unknown) => {
       expect(isClient(row) && row.name.startsWith(prefix), "Only run-owned fixtures may be tracked").toBe(true);
-      if (isClient(row)) fixtures.set(row.id, row);
+      if (isClient(row)) {
+        if (feedbackRun && !fixtures.has(row.id) && fixtures.size >= 2) throw new Error("Third fixture refused");
+        fixtures.set(row.id, row);
+      }
     };
     const current = async (id: string) => {
       const result = await users[0].from("clients").select("*").eq("id", id).single();
@@ -83,7 +100,10 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
         WHERE id=ANY(ARRAY[${ids.map(quote).join(",")}]::uuid[])`)).map((row: { body: unknown }) => row.body) : []);
       fixtures.clear();
       for (const [id, row] of recovered) fixtures.set(id, row);
-      if (!fixtures.size) return;
+      if (!fixtures.size) {
+        if (feedbackRun) expect(await read(feedbackFingerprintQuery([]))).toEqual(foreignBaseline);
+        return;
+      }
       const ids = [...fixtures.keys()];
       if (ids.length > 2 || ids.some((id) => !UUID.test(id)) || requests.some((row) => !UUID.test(row.id) || !UUID.test(row.actor)))
         throw new Error("Cleanup ownership invalid; no deletion");
@@ -121,6 +141,7 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
       const gone = Number(result[0].clients) === 0 && Number(result[0].ledger) === 0;
       if (uncertain && !gone) throw new Error(`Cleanup POST ${writeFailure}; fixture cleanup unconfirmed; no retry`);
       expect(gone).toBe(true);
+      if (feedbackRun) expect(await read(feedbackFingerprintQuery(ids)), "Unrelated business data changed; do not alter or clean foreign data").toEqual(foreignBaseline);
     };
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, timezoneId: "Asia/Tokyo" });
     let stage = "authentication", primaryFailure: unknown;
@@ -134,6 +155,19 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
         expect(member.error === null && member.data === true).toBe(true);
       }
       const page = await context.newPage();
+      const validateSave = async (body: Buffer | null, contentType: string | undefined) => {
+        if (!body || !contentType?.startsWith("multipart/form-data")) throw new Error("Unknown feedback action; blocked before execution");
+        const encoded = new Request("http://local.invalid", { method: "POST", headers: { "content-type": contentType }, body: new Uint8Array(body) });
+        assertFeedbackSave(await encoded.formData(), actorIds[0], prefix, requests, fixtures);
+      };
+      if (feedbackRun) await page.route(isClientActionUrl, async (route) => {
+        const outgoing = route.request(), headers = await outgoing.allHeaders();
+        if (outgoing.method() === "POST" && headers["next-action"]) {
+          try { await validateSave(outgoing.postDataBuffer(), headers["content-type"]); }
+          catch { await route.abort("blockedbyclient"); return; }
+        }
+        await route.continue();
+      });
       await page.goto("/login");
       await page.evaluate(({ email, password }) => {
         (document.querySelector('input[name="email"]') as HTMLInputElement).value = email;
@@ -142,25 +176,33 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
       await page.getByRole("button", { name: "Ingresar" }).click();
       await expect(page).toHaveURL(/\/dashboard$/);
       stage = "owner UI creation";
-      await page.goto("/clientes/nuevo");
+      const fixtureReturn = feedbackRun ? `/clientes?nombre=${encodeURIComponent(prefix)}` : "/clientes";
+      await page.goto(`/clientes/nuevo${feedbackRun ? `?returnTo=${encodeURIComponent(fixtureReturn)}` : ""}`);
       await page.getByLabel("Nombre *").fill(`${prefix}-owner`);
       request(0, await page.locator('[name="request_id"]').inputValue());
       await page.getByRole("button", { name: "Crear cliente" }).click();
-      await expect(page).toHaveURL(/\/clientes\/[a-f0-9-]+\/editar\?/);
-      const id = /\/clientes\/([a-f0-9-]+)\/editar/.exec(new URL(page.url()).pathname)![1];
+      await expect(page).toHaveURL(new RegExp(`/clientes${feedbackRun ? "\\?nombre=" : "$"}`));
+      await expect(page.getByText("Cliente creado", { exact: true })).toBeVisible();
+      const edit = page.getByRole("link", { name: `Editar ${prefix}-owner`, exact: true });
+      await expect(edit).toBeVisible();
+      const id = /\/clientes\/([a-f0-9-]+)\/editar/.exec((await edit.getAttribute("href"))!)![1];
       const first = await current(id);
       expect(first.version === 1 && first.status === "Contactado").toBe(true);
       stage = "owner UI edit";
+      await edit.click();
       await page.getByLabel("Rubro").fill("Fixture de integración");
       await page.getByLabel("Estado").selectOption("Reunión agendada");
       await page.getByLabel("Fecha de contacto *").fill("2026-10-07T12:30");
       await page.getByLabel("Fecha de reunión").fill("2026-10-15T10:00");
       request(0, await page.locator('[name="request_id"]').inputValue(), id);
       await page.getByRole("button", { name: "Guardar cambios" }).click();
-      await expect(page.locator('[name="version"]')).toHaveValue("2");
+      await expect(page).toHaveURL(new RegExp(`/clientes${feedbackRun ? "\\?nombre=" : "$"}`));
+      await expect(page.getByText("Cliente actualizado", { exact: true })).toBeVisible();
       const edited = await current(id);
       expect(edited.status === "Reunión agendada" && new Date(edited.contact_at).toISOString() === "2026-10-07T15:30:00.000Z" &&
         new Date(edited.meeting_at!).toISOString() === "2026-10-15T13:00:00.000Z").toBe(true);
+      await page.goto(`/clientes/${id}/editar${feedbackRun ? `?returnTo=${encodeURIComponent(fixtureReturn)}` : ""}`);
+      await expect(page.locator('[name="version"]')).toHaveValue("2");
       await page.reload(); await expect(page.getByLabel("Rubro")).toHaveValue("Fixture de integración");
       stage = "partner RPC update";
       const moved = await users[1].rpc("update_client", { p_request_id: request(1, randomUUID(), id), p_client_id: id,
@@ -189,7 +231,9 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
       await page.getByLabel("Notas").fill("Edición consciente confirmada");
       request(0, await page.locator('[name="request_id"]').inputValue(), id);
       await page.getByRole("button", { name: "Guardar cambios" }).click();
-      await expect(page.locator('[name="version"]')).toHaveValue("4");
+      await expect(page).toHaveURL(new RegExp(`/clientes${feedbackRun ? "\\?nombre=" : "$"}`));
+      await expect(page.getByText("Cliente actualizado", { exact: true })).toBeVisible();
+      expect((await current(id)).version).toBe(4);
       expect((await current(id)).notes === "Edición consciente confirmada").toBe(true);
       stage = "partner creation and replay";
       const secondId = request(1), literalName = ".*+?^${}()|[]\\%_", payload = { name: `${prefix}-partner${literalName}` };
@@ -201,9 +245,10 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
       if (dashboardRun) {
         stage = "TASK-007 dashboard procedure";
         await runDashboardLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures });
-      } else if (kanbanRun) {
+      } else if (kanbanRun || feedbackRun) {
         stage = "TASK-006 Kanban procedure";
-        await runKanbanLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures });
+        await runKanbanLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures,
+          validateSave: feedbackRun ? validateSave : undefined });
       } else {
       stage = "shared table and combined filter reads";
       await page.goto("/clientes?vista=tabla");

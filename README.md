@@ -469,3 +469,34 @@ Una corrida anterior se detuvo correctamente ante un outcome incierto y requiri�
 limpieza específica revisada de dos IDs/nueve solicitudes con snapshots y locks;
 no se clasificó como rollback ni se alteraron las guardas. SQL, Auth, permisos,
 duración JWT y configuración de Supabase conservaron sus valores originales.
+
+TASK-009 conserva esa recuperación y cambia el retorno de alta/edición al listado
+con filtros/vista válidos. La notificación global usa la respuesta confirmada de la
+acción; no acepta indicadores de éxito en la URL. Se cierra a los seis segundos de
+tiempo activo y pausa con foco o puntero encima. El cuerpo de las tarjetas inicia
+drag con ratón; Editar sigue disponible. Shift permite seleccionar texto; en móvil
+se conserva el scroll táctil y la alternativa Editar. El kanban muestra Contactado,
+Interesado, Reunión agendada, Cerrado, Sin respuesta y Respuesta negativa.
+
+Para checks aislados del desarrollo existente, usar `CRM_CHECK_ISOLATED=1`: build
+y start emplean `.next-task009`, y Playwright emplea puerto3109 sin reutilizar el
+servidor3000. Next puede regenerar `next-env.d.ts` y `tsconfig.json`; capturar sus
+bytes antes del build y restaurar sólo la generación propia después. `tsc --noEmit
+--incremental false` permite comprobar tipos sin ejecutar typegen sobre desarrollo.
+`tests/e2e/client-feedback-readonly.spec.ts` bloquea POSTs de negocio y verifica
+drag/cancelación sólo sobre tarjetas existentes; si no hay clientes declara el gap.
+
+El opt-in `CRM_FEEDBACK_LIVE_WRITE=1` prepara el recorrido positivo TASK-009 con
+máximo dos fixtures, alta/edición/retorno/notificaciones y movimientos confirmados,
+replay/conflicto/cleanup exacto del harness. Es exclusivo frente a los otros tres
+flags de fixtures y requiere una revisión y permiso nuevo antes de ejecutarse.
+Sólo ese modo admite una cartera existente: filtra la UI por su prefijo único,
+restringe cada escritura a solicitudes registradas/UUIDs propios y valida también
+el formulario multipart de la edición manual del kanban. Los otros tres modos
+conservan su guard de baseline vacío. Antes del recorrido y después del cleanup
+compara conteos y SHA256 calculados en el servidor para las cinco tablas de negocio,
+excluyendo sólo IDs propios; no devuelve filas de clientes ni timestamps de Auth.
+Un cambio ajeno provoca un fallo explícito y no autoriza su limpieza. El DELETE
+exacto con snapshots/ledger desconocido/readback y el helper de recuperación
+permanecen sin ampliar su alcance. Esta preparación no se ha ejecutado contra
+Supabase; las corridas históricas no demuestran los nuevos éxitos en navegador.

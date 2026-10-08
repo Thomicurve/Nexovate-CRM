@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
-import { STATUSES, type Client, type SaveState } from "@/lib/clients/model";
+import { isClient, safeReturnPath, STATUSES, type Client, type SaveState } from "@/lib/clients/model";
+import { useNotification } from "@/components/ui/notifications";
 import { utcToLocal } from "@/lib/clients/dates";
 import styles from "./clients.module.css";
 
@@ -17,14 +19,24 @@ export function ClientForm(props: Props) {
 }
 
 function FormBody({ client, requestId, initialContact, returnTo, action, resume }: Props & { resume: (client: Client) => void }) {
+  const router = useRouter(), notify = useNotification();
   const [state, submit, pending] = useActionState(async (previous: SaveState, form: FormData): Promise<SaveState> => {
-    try { return await action(previous, form); }
+    try {
+      const result = await action(previous, form);
+      if (result.status === "success") {
+        if (!isClient(result.client)) return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos." };
+        notify(client ? "Cliente actualizado" : "Cliente creado", result.client.name);
+        router.replace(safeReturnPath(returnTo));
+      }
+      return result;
+    }
     catch (error) {
       // Preserve native transport failures; framework redirects keep their control flow.
       if (!(error instanceof TypeError)) throw error;
       return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos antes de salir." };
     }
   }, { status: "idle" } as SaveState);
+  const disabled = pending || state.status === "success";
   const [intent, setIntent] = useState(requestId);
   const [values, setValues] = useState({ name: client?.name ?? "", company: client?.company ?? "",
     email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
@@ -39,7 +51,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
     <div className={styles.field}>
       <label htmlFor={name}>{label}</label>
       <input id={name} name={name} type={type} maxLength={maxLength} value={values[name]}
-        required={name === "name" || name === "contact_at"} readOnly={frozen} disabled={pending}
+        required={name === "name" || name === "contact_at"} readOnly={frozen} disabled={disabled}
         onChange={(event) => change(name, event.target.value)}
         aria-invalid={Boolean(state.errors?.[name])} aria-describedby={`${name}-hint${state.errors?.[name] ? ` ${name}-error` : ""}`} />
       <span id={`${name}-hint`} className={styles.hint}>
@@ -70,7 +82,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
       <h1>{client ? "Editar cliente" : "Nuevo cliente"}</h1>
       <p className={styles.hint}>* Obligatorio. Fechas en horario de Buenos Aires.</p>
       {!client && <p className={styles.hint}>El cliente se crea en Contactado.</p>}
-      <form action={submit} noValidate aria-busy={pending}>
+      <form action={submit} noValidate aria-busy={disabled}>
         <input type="hidden" name="request_id" value={intent} />
         <input type="hidden" name="client_id" value={client?.id ?? ""} />
         <input type="hidden" name="version" value={client?.version ?? ""} />
@@ -83,21 +95,21 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
           {field("email", "Email", "email", 254)}{field("phone", "Teléfono", "tel", 60)}
           {field("rubro", "Rubro", "text", 120)}{field("contact_at", "Fecha de contacto *", "datetime-local")}
           {client && <div className={styles.field}><label htmlFor="status">Estado</label>
-            <select id="status" name="status" value={values.status} disabled={pending || frozen}
+            <select id="status" name="status" value={values.status} disabled={disabled || frozen}
               onChange={(event) => change("status", event.target.value)} aria-invalid={Boolean(state.errors?.status)}>
               {STATUSES.map((status) => <option key={status}>{status}</option>)}
             </select>{frozen && <input type="hidden" name="status" value={values.status} />}
             {state.errors?.status && <p className={styles.error}>{state.errors.status}</p>}</div>}
           {field("meeting_at", "Fecha de reunión", "datetime-local")}
           <div className={`${styles.field} ${styles.wide}`}><label htmlFor="notes">Notas</label>
-            <textarea id="notes" name="notes" value={values.notes} maxLength={5000} readOnly={frozen} disabled={pending}
+            <textarea id="notes" name="notes" value={values.notes} maxLength={5000} readOnly={frozen} disabled={disabled}
               onChange={(event) => change("notes", event.target.value)} aria-invalid={Boolean(state.errors?.notes)} />
             {state.errors?.notes && <p className={styles.error}>{state.errors.notes}</p>}</div>
         </div>
         {state.message && <p className={styles.error} role="alert">{state.message}</p>}
         {pending && <p className={styles.hint} role="status">Guardando cliente…</p>}
-        <div className={styles.actions}><button type="submit" disabled={pending}>
-          {pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
+        <div className={styles.actions}><button type="submit" disabled={disabled}>
+          {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
         </button><Link href={returnTo}>Cancelar</Link></div>
       </form>
     </section>

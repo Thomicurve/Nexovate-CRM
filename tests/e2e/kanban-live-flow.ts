@@ -4,10 +4,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isClient, STATUSES, UUID, type Client } from "../../src/lib/clients/model";
 import type { MoveIntent } from "../../src/lib/clients/moves";
 import type { TrackedRequest } from "./clients-live-recovery";
+import { isClientActionUrl } from "./client-feedback-guards";
 
 type FixtureContext = { page: Page; prefix: string; users: SupabaseClient[]; actorIds: string[];
   requests: TrackedRequest[]; fixtures: Map<string, Client>; request: (index: number, id?: string, clientId?: string | null) => string;
-  remember: (value: unknown) => void; current: (id: string) => Promise<Client>; read: (query: string) => Promise<Record<string, unknown>[]> };
+  remember: (value: unknown) => void; current: (id: string) => Promise<Client>; read: (query: string) => Promise<Record<string, unknown>[]>;
+  validateSave?: (body: Buffer | null, contentType: string | undefined) => Promise<void> };
+const boardOrder = ["Contactado", "Interesado", "Reunión agendada", "Cerrado", "Sin respuesta", "Respuesta negativa"];
 
 export function parseMoveAction(body: string | null, fixtures: Map<string, Client>, prefix: string): MoveIntent {
   const args = JSON.parse(body ?? "null"), intent = args?.[0] as MoveIntent;
@@ -27,7 +30,7 @@ export function trackMoveIntent(intent: MoveIntent, seen: Map<string, string>, r
 
 // The shared reviewed harness owns setup (two fixtures maximum), recovery, cleanup and sign-outs.
 // This procedure never issues administrative writes or changes credentials/configuration.
-export async function runKanbanLiveFlow({ page, prefix, users, actorIds, requests, fixtures, request, remember, current, read }: FixtureContext) {
+export async function runKanbanLiveFlow({ page, prefix, users, actorIds, requests, fixtures, request, remember, current, read, validateSave }: FixtureContext) {
   const owner = [...fixtures.values()].find((row) => row.status === "Cerrado")!;
   expect(Boolean(owner)).toBe(true);
   const id = owner.id, seen = new Map<string, string>();
@@ -36,8 +39,11 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
   const intercept = async (route: Route) => {
     const req = route.request(), headers = await req.allHeaders();
     if (req.method() !== "POST" || !headers["next-action"]) return route.continue();
-    if (allowManualEdit && headers["content-type"]?.startsWith("multipart/form-data")) return route.continue();
     try {
+      if (allowManualEdit && headers["content-type"]?.startsWith("multipart/form-data")) {
+        if (validateSave) await validateSave(req.postDataBuffer(), headers["content-type"]);
+        return route.continue();
+      }
       const intent = parseMoveAction(req.postData(), fixtures, prefix);
       trackMoveIntent(intent, seen, (value) => request(0, value.requestId, value.clientId));
       actionIntents.push(intent);
@@ -56,27 +62,31 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
       await route.abort("failed");
     }
   };
-  await page.route("**/clientes*", intercept);
+  await page.route(isClientActionUrl, intercept);
   const assertTracked = () => { if (trackingFailure) throw trackingFailure; };
   const handle = () => page.getByRole("button", { name: `Cambiar estado de ${owner.name}`, exact: true });
   const board = page.getByRole("region", { name: "Kanban de clientes" });
   const column = (status: string) => board.locator(`[data-column="${status}"]`);
   const keyboardMove = async (steps: string[], end = "Space") => {
-    let index = STATUSES.indexOf(await handle().evaluate((element) => element.closest<HTMLElement>("[data-column]")!.dataset.column) as typeof STATUSES[number]);
+    let index = boardOrder.indexOf((await handle().evaluate((element) => element.closest<HTMLElement>("[data-column]")!.dataset.column))!);
     await handle().focus(); await page.keyboard.press("Space");
     await expect(handle()).toHaveAttribute("aria-pressed", "true");
     for (const step of steps) {
       index += step === "ArrowRight" ? 1 : -1;
       await page.keyboard.press(step);
-      await expect(page.locator('[id^="DndLiveRegion"]')).toContainText(`Destino: ${STATUSES[index]}.`);
+      await expect(page.locator('[id^="DndLiveRegion"]')).toContainText(`Destino: ${boardOrder[index]}.`);
     }
     await page.keyboard.press(end);
   };
   const pointerDrop = async (target: { x: number; y: number }) => {
-    const start = await handle().boundingBox(); expect(start).not.toBeNull();
+    const start = await board.locator(`[data-client="${id}"]`).getByRole("heading").boundingBox(); expect(start).not.toBeNull();
     await page.mouse.move(start!.x + start!.width / 2, start!.y + start!.height / 2);
     await page.mouse.down(); await page.mouse.move(start!.x + start!.width / 2 + 12, start!.y + start!.height / 2, { steps: 3 });
-    await page.mouse.move(target.x, target.y, { steps: 10 }); await page.mouse.up();
+    await page.mouse.move(target.x, target.y, { steps: 10 });
+    const cue = board.getByText("Soltar aquí", { exact: true });
+    if (target.y < (await column("Contactado").boundingBox())!.y) await expect(cue).toHaveCount(0);
+    else await expect(cue).toBeVisible();
+    await page.mouse.up(); await expect(cue).toHaveCount(0);
   };
   try {
     await page.goto(`/clientes?nombre=${encodeURIComponent(prefix)}`);
@@ -95,14 +105,14 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     const destination = column("Interesado"); await destination.scrollIntoViewIfNeeded();
     const target = await destination.boundingBox(); expect(target).not.toBeNull();
     await pointerDrop({ x: target!.x + target!.width / 2, y: target!.y + 100 });
-    await expect(page.getByText("Cambio de estado guardado.", { exact: true })).toBeVisible(); assertTracked();
+    await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); assertTracked();
     let saved = await current(id);
     expect(saved.status === "Interesado" && saved.version === owner.version + 1 && saved.contact_at === owner.contact_at && saved.meeting_at === owner.meeting_at).toBe(true);
     await page.reload(); await expect(column("Interesado").getByText(owner.name, { exact: true })).toBeVisible();
 
     // Simulate loss after commit, then prove same request replay does not repeat the mutation.
     loseNextResponse = true;
-    await keyboardMove(["ArrowLeft"]);
+    await keyboardMove(["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"]);
     await expect(board.getByRole("alert")).toContainText("No podemos confirmar"); assertTracked();
     await expect(column("Interesado").getByText(owner.name, { exact: true })).toBeVisible();
     const committed = await current(id); expect(committed.status === "Respuesta negativa" && committed.version === saved.version + 1).toBe(true);
@@ -111,7 +121,7 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     expect(ledger).toHaveLength(1); expect(ledger[0].response).toEqual(committed);
     await expect(page.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("aria-disabled", "true");
     await page.getByRole("button", { name: "Intentar de nuevo" }).click();
-    await expect(page.getByText("Cambio de estado guardado.", { exact: true })).toBeVisible(); assertTracked();
+    await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); assertTracked();
     expect(actionIntents.at(-1)).toEqual(actionIntents.at(-2));
     expect((await current(id)).version).toBe(committed.version);
 
@@ -133,13 +143,13 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     await expect(page.getByRole("link", { name: "Volver a editar" })).toBeVisible();
     await expect(column("Interesado").getByText(owner.name, { exact: true })).toBeVisible();
     await page.reload();
-    await keyboardMove(["ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft"]);
-    await expect(page.getByText("Cambio de estado guardado.", { exact: true })).toBeVisible(); assertTracked();
+    await keyboardMove(["ArrowRight"]);
+    await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); assertTracked();
     expect((await current(id)).status).toBe("Reunión agendada");
     await keyboardMove(["ArrowRight"]);
     await expect(column("Cerrado").getByText(owner.name, { exact: true })).toBeVisible(); assertTracked();
     // The card moves optimistically; only terminal success releases the intent after RPC confirmation.
-    await expect(page.getByText("Cambio de estado guardado.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible();
     await expect(handle()).toBeEnabled();
     saved = await current(id); expect(saved.status).toBe("Cerrado");
     const milestones = await read(`SELECT status,count(*) AS count FROM public.client_milestones WHERE client_id='${id}'::uuid GROUP BY status`);
@@ -167,14 +177,15 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     await page.getByLabel("Estado", { exact: true }).selectOption("Interesado");
     request(0, await page.locator('[name="request_id"]').inputValue(), id); allowManualEdit = true;
     await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(page.locator('[name="version"]')).toHaveValue(String(saved.version + 1));
+    await expect(page).toHaveURL(/\/clientes\?/);
+    await expect(page.getByText("Cliente actualizado", { exact: true })).toBeVisible();
+    expect((await current(id)).version).toBe(saved.version + 1);
     allowManualEdit = false; expect((await current(id)).status).toBe("Interesado");
-    await page.getByRole("link", { name: "Cancelar", exact: true }).click();
     await expect(page).toHaveURL(/\/clientes\?/); await expect(board).toBeVisible();
     await expect(page.getByText("No hay clientes que coincidan con los filtros.")).toBeVisible();
     expect([...new URL(page.url()).searchParams]).toEqual([...params]); assertTracked();
   } catch (error) {
     if (actionIntents.length) console.log("TASK-006 recovery intent:", JSON.stringify(actionIntents.at(-1)));
     throw error;
-  } finally { await page.unroute("**/clientes*", intercept); }
+  } finally { await page.unroute(isClientActionUrl, intercept); }
 }

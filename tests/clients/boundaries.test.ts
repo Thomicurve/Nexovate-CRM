@@ -22,11 +22,12 @@ describe("client pages, actions and DAL server boundaries", () => {
     f.redirect.mockImplementation((path) => { throw new Error(`redirect:${path}`); });
     f.notFound.mockImplementation(() => { throw new Error("not-found"); });
   });
-  it("guards an action independently and redirects only after confirmed RPC success", async () => {
-    await expect(saveClient({ status: "idle" }, form({ return_to: "https://evil.invalid" }))).rejects.toThrow(
-      `redirect:/clientes/${clientId}/editar?guardado=1&returnTo=%2Fclientes`);
+  it("returns actual confirmed success for navigation feedback without URL flags or redirects", async () => {
+    await expect(saveClient({ status: "idle" }, form({ return_to: "https://evil.invalid" })))
+      .resolves.toEqual({ status: "success", client: confirmed });
     expect(f.guard).toHaveBeenCalledOnce(); expect(f.rpc).toHaveBeenCalledOnce();
     expect(f.revalidate).toHaveBeenCalledWith("/clientes");
+    expect(f.redirect).not.toHaveBeenCalled();
   });
   it("guards DAL before returning selected row and validates its schema", async () => {
     expect(await getClient(clientId)).toEqual({ kind: "found", client: confirmed });

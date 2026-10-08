@@ -2,13 +2,14 @@ import type { ReactNode } from "react";
 import { NavigationLinks } from "@/components/clients/navigation-links";
 import { requireMember } from "@/lib/auth/require-member";
 import { logout } from "@/app/login/actions";
+import { NotificationProvider } from "@/components/ui/notifications";
 
 export const dynamic = "force-dynamic";
 
 export default async function CrmLayout({ children }: { children: ReactNode }) {
   await requireMember();
   return (
-    <div className="crm-shell">
+    <NotificationProvider><div className="crm-shell">
       <aside className="crm-navigation">
         <p className="brand">Nexovate</p>
         <nav aria-label="Navegación principal">
@@ -17,6 +18,6 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
       <main className="crm-content">{children}</main>
-    </div>
+    </div></NotificationProvider>
   );
 }
