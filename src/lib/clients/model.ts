@@ -1,4 +1,5 @@
 import { localToUtc, utcToLocal } from "./dates";
+import { listPath, parseFilters, type SearchParams } from "./filters";
 
 export const STATUSES = ["Contactado", "Reunión agendada", "Cerrado", "Sin respuesta", "Respuesta negativa", "Interesado"] as const;
 export type ClientStatus = typeof STATUSES[number];
@@ -53,11 +54,13 @@ export function normalizeForm(form: FormData) {
 }
 export function safeReturnPath(value: string) {
   if (!/^\/clientes(?:\?|$)/.test(value) || value.includes("#") || value.includes("\\") || /[\r\n]/.test(value)) return "/clientes";
-  const url = new URL(value, "https://local.invalid"), query = new URLSearchParams();
+  const url = new URL(value, "https://local.invalid"), params: SearchParams = {};
   if (url.pathname !== "/clientes") return "/clientes";
   for (const [key, val] of url.searchParams) {
-    if (key === "nombre" && val.length <= 200 || key === "estado" && STATUSES.includes(val as ClientStatus) ||
-      ["desde", "hasta"].includes(key) && /^\d{4}-\d{2}-\d{2}$/.test(val)) query.append(key, val);
+    if (!["nombre", "estado", "desde", "hasta", "pagina"].includes(key)) continue;
+    const previous = params[key];
+    params[key] = previous === undefined ? val : Array.isArray(previous) ? [...previous, val] : [previous, val];
   }
-  return `/clientes${query.size ? `?${query}` : ""}`;
+  const parsed = parseFilters(params);
+  return parsed.ok ? listPath(parsed.filters) : "/clientes";
 }

@@ -294,7 +294,33 @@ La limpieza administrativa bloquea únicamente esas filas, exige snapshots exact
 ante cambio inesperado. Borra dependencias y ledger sólo de esas identidades de
 fixtures, luego clientes, en una transacción. Un outcome incierto se lee antes de
 cualquier reintento; no usa TRUNCATE/reset ni borra datos anteriores o de terceros.
-Tabla/filtros y kanban quedan para unidades posteriores.
+La tabla y los filtros de TASK-005 están implementados; kanban queda para TASK-006.
+
+La lista combina nombre parcial sin distinguir mayúsculas (incluidos caracteres
+literales como `*`, `%` o `[]`), uno o varios estados y fechas de contacto inclusivas
+en Buenos Aires. Usa `nombre`, `estado` repetible, `desde` y `hasta` en la URL.
+La página `pagina` conserva el conjunto al navegar, crear, editar o cancelar;
+aplicar filtros vuelve a la primera página y limpiar vuelve a `/clientes`.
+La consulta paginada muestra 50 filas por página y obtiene el total exacto;
+una respuesta truncada o sin total se presenta como error, sin ocultar clientes.
+Las fechas calendario se validan desde 1900 y los días con cambios históricos de
+hora abarcan desde su primer instante válido hasta el siguiente día local.
+
+WU-007 comprobó 97 pruebas unitarias/RTL de clientes, lint, tipos y build.
+El caso real existente pasó en Edge con escritorio1440/móvil390 y navegador en
+Tokyo: tabla compartida, búsqueda literal, filtros combinados/ambos días,
+retorno desde alta/edición, panel inline con Cancelar/Escape y foco, rango
+inválido, sin resultados, limpieza de filtros y Estado/Editar en la misma columna
+móvil. Una página posterior fuera de rango se reconoce sólo con HTTP416/`PGRST103`:
+no inventa un total ni filas vacías y ofrece volver a la primera página conservando
+filtros. La respuesta real tuvo data/count nulos y la recuperación con Enter pasó.
+Un primer fallo fue del harness al comparar el orden de claves URL;
+se corrigió la comparación semántica tras confirmar la limpieza. El run final
+pasó con los mismos dos fixtures y sus guardas de recuperación/cleanup intactas;
+readback final confirmó clientes, transiciones, hitos, correcciones y ledger0,
+Auth2/members2, JWT3600 y signup deshabilitado. No se repitieron pruebas SQL/Auth
+sin cambios. Capturas/video/trace están apagados; los metadatos textuales generados
+por el runner se eliminaron al cerrar la comprobación, sin reportes persistentes.
 
 La migración incremental `202610080004_rpc_conflict_errors.sql`, aplicada y
 verificada en el proyecto remoto, cambia los errores de negocio `client_version_conflict` e
