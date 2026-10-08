@@ -136,11 +136,13 @@ usan SECURITY DEFINER/search_path vacío; el worker privado no tiene EXECUTE cal
 
 ## Métricas históricas — WU-009
 
-La migración local preparada `202610080005_dashboard_metrics.sql` agrega el RPC
-readonly `dashboard_metrics(p_from date, p_until date, p_grouping text)`; aún no
-está aplicada en Supabase. Necesita revisión y autorización específica de aplicación
-remota antes de conectar el dashboard. Usa SECURITY INVOKER, RLS y membresía explícita;
-EXECUTE sólo para authenticated. Una consulta STABLE mantiene el mismo snapshot
+La migración `202610080005_dashboard_metrics.sql`, aplicada y verificada en Supabase
+con autorización específica, agrega el RPC readonly
+`dashboard_metrics(p_from date, p_until date, p_grouping text)`.
+Usa SECURITY INVOKER, RLS y membresía explícita. PUBLIC y anon no tienen EXECUTE;
+authenticated lo tiene, con grants predeterminados de postgres y service_role conservados.
+El guard de identidad y membresía corre antes de leer, incluso con bypass de RLS.
+Una consulta STABLE mantiene el mismo snapshot
 para totales y series, sin descargar hitos mediante paginación REST.
 
 `src/lib/metrics/server.ts` comprueba membresía antes de validar parámetros o consultar.
@@ -154,6 +156,40 @@ Errores de consulta o respuestas incoherentes producen `unavailable`, nunca cero
 `npm test -- tests/metrics` comprueba parser/contrato/boundary mediante seams SDK;
 `npm run test:db` demuestra agregación, historial, zona, permisos y más de 1.000 hitos
 en PostgreSQL nuevo aislado. Ninguno acredita aplicación remota de esta migración.
+
+## Dashboard — WU-010
+
+El dashboard distingue totales del rango e históricos, permite aplicar fechas
+explícitamente y cambiar Día/Mes/Año sobre el rango ya aplicado. Gráficos Recharts
+3.10.1 usan teclado y tooltip; cada serie ofrece una tabla semántica con todos los
+períodos, incluidos ceros. Carga, sin historial, sin actividad en rango, rango inválido,
+serie excesiva y fallo de consulta tienen mensajes y acciones propios.
+
+`tests/e2e/dashboard.spec.ts` comprueba SSR, controles y escritorio/móvil sin clientes
+nuevos. Declara si observó datos disponibles o fallo de RPC; un fallo no prueba charts.
+Después de build, usar Edge con screenshots/video/trace desactivados como los demás casos.
+
+El caso TASK-007 de `clients-live.spec.ts` requiere permiso específico de fixtures y
+limpieza antes de `CRM_DASHBOARD_LIVE_WRITE=1`; es incompatible con las otras dos flags.
+Reutiliza el lifecycle y cleanup existentes sin cambios, prefijo legado `WU006-<UUID>`
+y máximo dos clientes por run. El flow registra solicitudes antes de cada escritura,
+espera respuesta y snapshot confirmado, y conserva el intent completo ante outcome incierto.
+Recovery exige ledger completo; cleanup bloquea IDs propios y rechaza snapshots o solicitudes
+desconocidos antes de borrar únicamente dependencias, pares ledger y esos dos clientes.
+No borrar por prefijo ni reintentar un DELETE incierto; leer su resultado.
+
+Con autorización específica, la migración005 y su registro exacto se aplicaron en una
+transacción, conservando las cuatro versiones anteriores, configuración y cuentas.
+La primera prueba real TASK-007 pasó en Edge (23,7 s): ambos miembros, retorno y salto
+de etapas, corrección de contacto y cita independiente, totales y series Día/Mes/Año,
+gráficos con tooltip por teclado, tablas completas y móvil390 sin overflow.
+Recovery, cleanup propio y sign-outs terminaron; readback confirmó las cinco tablas
+de negocio vacías, sin escrituras activas, y función/ACL/historial/configuración intactos.
+La repetición independiente autorizada pasó en Edge (21,5 s / 25,1 s total), con el
+mismo caso TASK-007 y máximo dos fixtures. Confirmó primeros hitos, regreso/salto,
+contacto/cita, totales Día/Mes/Año, SVG por teclado, tablas y móvil, además del conflicto
+HTTP409/PT409 con rollback confirmado. Cleanup dejó las cinco tablas vacías;
+Auth/REST, función/ACL y las cinco versiones de migración permanecieron intactos.
 
 ## Convenciones
 

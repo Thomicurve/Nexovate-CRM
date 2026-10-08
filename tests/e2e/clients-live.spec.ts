@@ -7,13 +7,15 @@ import { expect, test } from "@playwright/test";
 import { isClient, UUID, type Client } from "../../src/lib/clients/model";
 import { recoverFixtures, finishLiveRun, type TrackedRequest } from "./clients-live-recovery";
 import { runKanbanLiveFlow } from "./kanban-live-flow";
+import { runDashboardLiveFlow } from "./dashboard-live-flow";
 
 // Explicitly privileged fixture mode. This case is absent from ordinary runs;
 // focusing this file without the flag fails discovery, rather than reporting skip.
 const kanbanRun = process.env.CRM_KANBAN_LIVE_WRITE === "1";
-if (kanbanRun && process.env.CRM_CLIENTS_LIVE_WRITE === "1") throw new Error("Choose one authorized fixture mode per run");
-if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun) {
-  test(kanbanRun ? "authorized TASK-006 Kanban fixtures with guarded exact cleanup" :
+const dashboardRun = process.env.CRM_DASHBOARD_LIVE_WRITE === "1";
+if ([kanbanRun, dashboardRun, process.env.CRM_CLIENTS_LIVE_WRITE === "1"].filter(Boolean).length > 1) throw new Error("Choose one authorized fixture mode per run");
+if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun) {
+  test(dashboardRun ? "authorized TASK-007 dashboard fixtures with guarded exact cleanup" : kanbanRun ? "authorized TASK-006 Kanban fixtures with guarded exact cleanup" :
     "authorized two-client CRUD fixtures with guarded exact cleanup", async ({ browser }) => {
     test.setTimeout(120_000);
     const names = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ACCESS_TOKEN",
@@ -196,7 +198,10 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun) {
       const replay = await users[1].rpc("create_client", { p_request_id: secondId, p_payload: payload });
       expect(replay.error === null && replay.data?.id === second.data?.id && replay.data?.version === 1).toBe(true);
       expect(fixtures.size).toBe(2);
-      if (kanbanRun) {
+      if (dashboardRun) {
+        stage = "TASK-007 dashboard procedure";
+        await runDashboardLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures });
+      } else if (kanbanRun) {
         stage = "TASK-006 Kanban procedure";
         await runKanbanLiveFlow({ page, prefix, users, actorIds, requests, request, remember, current, read, fixtures });
       } else {

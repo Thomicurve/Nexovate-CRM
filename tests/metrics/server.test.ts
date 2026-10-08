@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDashboardMetrics } from "@/lib/metrics/server";
+import DashboardPage from "@/app/(crm)/dashboard/page";
 const f = vi.hoisted(() => ({ guard: vi.fn(), rpc: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-member", () => ({ requireMember: f.guard }));
@@ -35,5 +36,12 @@ describe("readonly dashboard server boundary", () => {
     f.rpc.mockResolvedValue({ data: r, error: null });
     expect(await getDashboardMetrics({ desde: r.from, hasta: r.until, agrupacion: r.grouping })).toEqual(r);
     expect(f.rpc).toHaveBeenCalledOnce();
+  });
+  it("protects the dashboard page through guarded DAL without duplicating the metrics RPC", async () => {
+    await DashboardPage({ searchParams: Promise.resolve(params) });
+    expect(f.guard).toHaveBeenCalledOnce(); expect(f.rpc).toHaveBeenCalledOnce();
+    f.guard.mockRejectedValue(new Error("blocked")); f.rpc.mockClear();
+    await expect(DashboardPage({ searchParams: Promise.resolve(params) })).rejects.toThrow("blocked");
+    expect(f.rpc).not.toHaveBeenCalled();
   });
 });
