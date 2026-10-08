@@ -1,8 +1,7 @@
-export default function HomePage() {
-  return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-semibold">Nexovate CRM</h1>
-      <p className="mt-4">Aplicación en preparación.</p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { requireMember } from "@/lib/auth/require-member";
+
+export default async function HomePage() {
+  await requireMember();
+  redirect("/dashboard");
 }

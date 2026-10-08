@@ -1,9 +1,11 @@
 # Nexovate CRM
 
-Base de Next.js App Router en español, con herramientas y una página neutra.
+Base de Next.js App Router en español, con login SSR y destino privado mínimo.
 El esquema, permisos y mutaciones SQL de TASK-003 están implementados y probados
-localmente. Auth, pantallas de clientes y dashboard quedan para tareas posteriores;
-la aplicación todavía no está integrada con un Supabase remoto.
+localmente. Las tres migraciones y las dos cuentas autorizadas están provisionadas
+en Supabase; ingreso, logout y renovación SSR tienen pruebas reales del proveedor.
+La expiración natural de JWT también está verificada; la duración final sigue en
+una hora. Pantallas de clientes y métricas quedan para tareas posteriores.
 
 ## Instalación y ejecución
 
@@ -16,7 +18,7 @@ npm run dev
 ```
 
 Abrir http://localhost:3000. Para producción local: `npm run build`, luego
-`npm run start`. No se necesita Supabase ni leer `.env` para esta base.
+`npm run start`. El ingreso privado requiere la configuración pública de Supabase.
 `.env` y `.env.*` están ignorados, salvo `.env.example`, que sólo tiene placeholders.
 Los comandos de Next pueden cargar automáticamente un `.env` local existente.
 
@@ -32,9 +34,9 @@ Los comandos de Next pueden cargar automáticamente un `.env` local existente.
 | `npm run test:e2e -- tests/e2e/<ruta>.spec.ts` | Playwright sobre servidor local de producción |
 | `npm run test:db` | Integración SQL de esquema/permisos/RLS en PostgreSQL local nuevo |
 
-No hay suites de negocio en TASK-001. `npm test` y `npm run test:e2e -- --list`
-deben informar ausencia de pruebas y salir con error; no se oculta con
-`passWithNoTests`. TDD aplica al comportamiento futuro, no a este setup.
+`npm test` ejecuta las suites Auth unitarias/RTL actuales; Playwright descubre
+y ejecuta las pruebas Auth locales y live. Las primeras usan seams simulados;
+las live requieren el proyecto y las dos cuentas reales, sin sustituir Auth por mocks.
 Vitest descubre `tests/**/*.test.ts(x)` y excluye E2E/soporte. Playwright usará
 `tests/e2e/**/*.spec.ts` o `.test.ts`. No usar Vitest para Server Components
 asíncronos ni como sustituto de PostgreSQL/RLS real.
@@ -134,12 +136,122 @@ usan SECURITY DEFINER/search_path vacío; el worker privado no tiene EXECUTE cal
 ## Convenciones
 
 Código en `src/`; alias `@/` → `src/`. Tailwind 4 usa PostCSS y configuración CSS.
-`components.json` y `src/lib/utils.ts` preparan shadcn/ui; no hay componentes
-funcionales añadidos. DESIGN-2 está aprobado en `crm-nexovate.pen`; componentes,
-pantallas y tokens de la aplicación se implementarán en tareas posteriores.
+`components.json` y `src/lib/utils.ts` preparan shadcn/ui. El login reproduce
+DESIGN-2 aprobado en `crm-nexovate.pen` y carga IBM Plex Sans desde el paquete
+local, sin peticiones a Google Fonts. Las demás pantallas siguen pendientes.
 Next tiene `agentRules: false` para preservar las instrucciones locales de agentes.
 
 Referencias oficiales: [Next/Vitest](https://nextjs.org/docs/app/guides/testing/vitest),
 [ESLint](https://nextjs.org/docs/app/api-reference/config/eslint),
 [shadcn](https://ui.shadcn.com/docs/components-json) y
 [Playwright](https://playwright.dev/docs/test-configuration).
+
+## Auth SSR y preparación del proyecto Supabase
+
+La app acepta únicamente `NEXT_PUBLIC_SUPABASE_URL` (HTTPS) y
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), según `.env.example`.
+No usa una secret key ni `service_role`. Cada petición crea su cliente servidor;
+Proxy conserva cookies renovadas/eliminadas en request y response, incluso al
+redirigir, junto a headers `Cache-Control`, `Expires` y `Pragma`. Todas las rutas
+de aplicación tienen `private, no-store`; páginas privadas son dinámicas.
+`getUser()` valida identidad contra Auth antes de consultar el RPC booleano
+`current_user_is_crm_member()`. `getSession()` nunca decide autorización.
+Layout, página privada y DAL vuelven a comprobar acceso. Toda futura operación
+privada debe llamar `requireMember()` y usar su cliente sin keys privilegiadas.
+El login valida credenciales y membresía en su propia action. Logout valida la
+identidad, cierra la sesión local y limpia sólo cookies del proyecto; también está
+disponible para una cuenta denegada o cuando Auth no responde. No revoca sesiones
+de otros dispositivos ni habilita registro público.
+
+El puente de la migración `202610070003_membership_bridge.sql` es SECURITY INVOKER,
+con `search_path` vacío y EXECUTE sólo para `authenticated`. Reutiliza el helper
+privado existente; no abre lectura de `crm_members` ni expone el schema privado.
+
+La provisión remota autorizada quedó verificada: registro público deshabilitado,
+tres versiones exactas `202610070001`, `202610070002` y `202610070003` con SQL
+igual al revisado, dos cuentas confirmadas y slots 1/2 explícitos. No se crearon
+clientes ni se cambiaron proveedores o keys. La duración JWT final es 3600 segundos.
+Para otra provisión autorizada, conservar estas guardas:
+
+1. En Supabase Auth, mantener Email/Password habilitado y deshabilitar **Allow new
+   users to sign up**. No hay formulario ni endpoint de registro en la app.
+2. Provisionar exclusivamente las dos cuentas acordadas mediante administración
+   de Auth. Establecer contraseñas en Supabase por un canal privado; no escribirlas
+   en chat, repositorio, fixtures ni documentación. Verificar confirmación de email
+   y acceso efectivo; anotar los dos UUID distintos, sin deducirlos del email.
+3. Revisar historial de migraciones y esquema del proyecto. Aplicar, en orden,
+   las migraciones `202610070001_shared_crm_schema.sql`,
+   `202610070002_atomic_client_mutations.sql` y
+   `202610070003_membership_bridge.sql` sólo si aún no están aplicadas; no recrear
+   tablas ni repetir scripts a ciegas sobre datos existentes.
+4. En una transacción administrativa, consultar `public.crm_members` y comprobar
+   los UUID contra `auth.users`. Si la tabla está vacía, insertar explícitamente
+   slots 1 y 2 con esos UUID. Si ya tiene exactamente esos miembros, conservarla.
+   Si cualquier slot pertenece a otra identidad o la configuración es parcial,
+   detenerse para revisión: no usar upsert, DELETE ni reasignación automática.
+5. Confirmar que Data API expone `public`, nunca `crm_private`; comprobar el RPC
+   con cada cuenta autenticada, y su denegación para tercero/anónimo. No ejecutar
+   el runner local contra este proyecto ni copiar su fixture de Auth/roles.
+6. Verificar ingreso de ambos miembros, error de contraseña, logout, expiración y
+   renovación real con cookies en dos peticiones sucesivas. Confirmar además
+   denegación de tercero y de llamadas directas a operaciones/rutas privadas.
+
+`npm test -- tests/auth` verifica guards, actions, cookies y formulario con seams
+SDK simulados; no acredita Auth remoto. `PLAYWRIGHT_CHANNEL=msedge npm run
+test:e2e -- tests/e2e/auth-local.spec.ts` usa servidor Next de producción y navegador
+real para rutas sin sesión, validación nativa, logout local sin identidad y geometría
+desktop/móvil. En PowerShell establecer `$env:PLAYWRIGHT_CHANNEL='msedge'` antes
+del comando. Screenshots, video y trace permanecen desactivados. `npm run test:db`
+comprueba el puente con dos UUID sintéticos, tercero y anon bajo roles reales;
+es PostgreSQL local, no Supabase Auth/Data API. Las pruebas de ingreso/renovación
+real usan `tests/e2e/auth-live.spec.ts`. No hay suites saltadas ni backend Auth
+ficticio presentado como evidencia real.
+
+Para repetir las pruebas live, completar los placeholders `CRM_LIVE_PROJECT_REF`,
+`CRM_OWNER_EMAIL`, `CRM_PARTNER_EMAIL`, `CRM_OWNER_PASSWORD` y
+`CRM_PARTNER_PASSWORD` sólo en `.env` ignorado o variables privadas del proceso.
+El archivo `.env` local es obligatorio incluso al inyectar todos los valores;
+las variables del proceso prevalecen como overrides. El harness selecciona esos
+valores y las dos variables públicas; no carga PAT, secretos de
+administración, contraseña DB ni token GitHub. No modifica configuración remota.
+Después de `npm run build`, ejecutar en PowerShell:
+
+```powershell
+$env:PLAYWRIGHT_CHANNEL='msedge'
+$env:PLAYWRIGHT_NO_COPY_PROMPT='1'
+npm run test:e2e -- tests/e2e/auth-live.spec.ts --workers=1
+```
+
+Los cuatro casos verifican ambos miembros con Auth `getUser()`, RPC booleano,
+lectura RLS, payload inválido sin nuevas filas, ingreso UI/SSR, logout, contraseña
+incorrecta, RPCs anónimos y renovación real con cookies en peticiones sucesivas.
+La renovación fuerza sólo metadata SDK vencida, conserva el JWT firmado intacto
+y exige un refresh token nuevo validado por el proveedor. No acredita expiración
+criptográfica natural; esa comprobación usa el caso administrativo separado.
+
+El modo `CRM_LIVE_NATURAL_EXPIRY=1` está disponible y deshabilitado por defecto;
+registra un caso adicional, sin marcarlo como skip. Es una operación administrativa
+que requiere autorización explícita del ajuste global y `SUPABASE_ACCESS_TOKEN`
+privado. No ejecutarlo en una verificación readonly. Comprueba proyecto saludable,
+dos cuentas/binding acordado, cartera vacía, signup deshabilitado y TTL 3600;
+cambia sólo `jwt_exp` a 300, emite dos JWT con `exp-iat=300` y restaura 3600 en
+`finally` antes de esperar, con readback de todos los flags. Conserva JWT/cookies
+sólo en memoria y espera en tramos de hasta 30 segundos. Luego comprueba rechazo
+del JWT viejo y SSR con refresh válido/revocado. El proveedor recomienda al menos
+[cinco minutos](https://supabase.com/docs/guides/auth/sessions); no se afirma un
+mínimo técnico obligatorio. Tras autorización explícita de ese ajuste global,
+el caso pasó con ambos JWT emitidos válidos y vencidos naturalmente: Auth rechazó
+los tokens viejos, SSR renovó la sesión con refresh válido (200, cookies nuevas y
+segunda petición 200) y rechazó la sesión con refresh revocado (307 al ingreso
+con `reason=expired`). El readback confirmó TTL 3600 y todos los demás flags
+idénticos al baseline antes de esperar. El TTL final permanece en 3600 segundos.
+
+Antes del binding se ejecutó además el modo `CRM_LIVE_EXPECT_UNBOUND=1`: una de
+las dos cuentas reales autenticadas fue rechazada por RLS/RPC/SSR y por la UI.
+Ese modo sirve sólo durante una provisión con membresía todavía vacía; no borrar
+ni reasignar miembros para repetirlo. No representa una tercera identidad remota.
+Las pruebas no insertan clientes, no usan un cliente administrativo para validar
+autorización y no exportan sesiones, cookies, imágenes, video o trace.
+
+Referencias oficiales: [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs)
+y [validación getUser](https://supabase.com/docs/reference/javascript/auth-getuser).
