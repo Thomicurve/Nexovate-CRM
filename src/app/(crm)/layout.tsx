@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { NavigationLinks } from "@/components/clients/navigation-links";
 import { requireMember } from "@/lib/auth/require-member";
 import { logout } from "@/app/login/actions";
 
@@ -12,7 +12,7 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
       <aside className="crm-navigation">
         <p className="brand">Nexovate</p>
         <nav aria-label="Navegación principal">
-          <Link href="/dashboard" className="nav-row active" aria-current="page">Dashboard</Link>
+          <NavigationLinks />
           <form action={logout}><button className="nav-row" type="submit">Cerrar sesión</button></form>
         </nav>
       </aside>

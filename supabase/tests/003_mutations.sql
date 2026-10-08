@@ -46,7 +46,7 @@ SELECT test_support.assert_true((SELECT count(*) = 4 FROM public.client_transiti
 SELECT test_support.assert_true((SELECT count(*) = 2 FROM public.client_milestones), 'return does not duplicate and departure does not remove milestones');
 SELECT test_support.assert_true((SELECT reached_at = (:'meeting'::jsonb->>'updated_at')::timestamptz FROM public.client_milestones WHERE status = 'Reunión agendada'), 'return retains first meeting date');
 SELECT test_support.assert_error(format('SELECT public.change_client_status(''00000000-0000-4000-8000-000000000004'', %L, 5, %L)', :'first'::jsonb->>'id', 'Cerrado'), '22023', 'movement changed payload rejected');
-SELECT test_support.assert_error(format('SELECT public.update_client(gen_random_uuid(), %L, 1, %L)', :'first'::jsonb->>'id', '{"name":"Obsoleto"}'), '40001', 'stale version rejected');
+SELECT test_support.assert_error(format('SELECT public.update_client(gen_random_uuid(), %L, 1, %L)', :'first'::jsonb->>'id', '{"name":"Obsoleto"}'), 'PT409', 'stale version rejected without provider serialization retry');
 SELECT test_support.assert_error(format('SELECT public.update_client(gen_random_uuid(), %L, NULL, %L)', :'first'::jsonb->>'id', '{}'), '22023', 'version guard mandatory');
 SELECT public.create_client('00000000-0000-4000-8000-000000000001', '{"name":"Segundo"}') AS second \gset
 SELECT test_support.assert_true(:'second'::jsonb->>'id' <> :'first'::jsonb->>'id', 'request IDs scoped to actor');

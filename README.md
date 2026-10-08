@@ -114,8 +114,9 @@ la misma llamada. Ledger privado por `(actor, request_id)` compara operación,
 cliente, versión y JSON canónico; replay exacto devuelve la respuesta original,
 aunque el cliente haya avanzado después. Refrescar lectura si se necesita estado
 actual. Cambiar payload/operación/versión con ese ID produce SQLSTATE `22023`;
-para una intención nueva usar otro UUID. Conflicto de versión produce `40001`
-(`client_version_conflict`); recuperar estado y decidir la siguiente operación.
+para una intención nueva usar otro UUID. Tras la migración004, el conflicto de
+versión produce `PT409` (`client_version_conflict`); `40001` corresponde sólo al
+contrato legado. Recuperar estado y decidir la siguiente operación.
 No reintentar una escritura obsoleta cambiando silenciosamente su versión.
 
 Cliente, eventos, primeros hitos, corrección de contacto y ledger se guardan en
@@ -167,7 +168,7 @@ El puente de la migración `202610070003_membership_bridge.sql` es SECURITY INVO
 con `search_path` vacío y EXECUTE sólo para `authenticated`. Reutiliza el helper
 privado existente; no abre lectura de `crm_members` ni expone el schema privado.
 
-La provisión remota autorizada quedó verificada: registro público deshabilitado,
+La provisión remota inicial quedó verificada: registro público deshabilitado,
 tres versiones exactas `202610070001`, `202610070002` y `202610070003` con SQL
 igual al revisado, dos cuentas confirmadas y slots 1/2 explícitos. No se crearon
 clientes ni se cambiaron proveedores o keys. La duración JWT final es 3600 segundos.
@@ -182,7 +183,8 @@ Para otra provisión autorizada, conservar estas guardas:
 3. Revisar historial de migraciones y esquema del proyecto. Aplicar, en orden,
    las migraciones `202610070001_shared_crm_schema.sql`,
    `202610070002_atomic_client_mutations.sql` y
-   `202610070003_membership_bridge.sql` sólo si aún no están aplicadas; no recrear
+   `202610070003_membership_bridge.sql` y `202610080004_rpc_conflict_errors.sql`
+   sólo si aún no están aplicadas; no recrear
    tablas ni repetir scripts a ciegas sobre datos existentes.
 4. En una transacción administrativa, consultar `public.crm_members` y comprobar
    los UUID contra `auth.users`. Si la tabla está vacía, insertar explícitamente
@@ -255,3 +257,54 @@ autorización y no exportan sesiones, cookies, imágenes, video o trace.
 
 Referencias oficiales: [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs)
 y [validación getUser](https://supabase.com/docs/reference/javascript/auth-getuser).
+
+## Formulario de clientes — WU-006
+
+`/clientes/nuevo` y `/clientes/[id]/editar` usan RPCs autenticados, con guard
+independiente en páginas, action y DAL. Alta siempre Contactado; edición incluye
+los seis estados. Nombre obligatorio, email opcional validado, campos vacíos
+opcionales como null y fechas en Buenos Aires. La fecha de contacto inicial la
+registra SQL al crear; fechas existentes sin editar conservan segundos/fracciones.
+Horarios históricos inexistentes o ambiguos requieren corrección; un instante
+original explícito sin cambios conserva su precisión. Una versión obsoleta muestra
+el dato confirmado y exige Volver a editar. Fallos ambiguos mantienen datos/UUID
+y bloquean cambiar el payload hasta reintentar; corregir un fallo definitivo genera
+un nuevo intent. Cancelar conserva únicamente parámetros de filtros permitidos.
+
+`npm test -- tests/clients` comprueba reglas/RPC/guardas/RTL con seams simulados;
+no acredita persistencia remota. `tests/e2e/clients-form.spec.ts` utiliza la cuenta
+owner ya provisionada para comprobar geometría desktop/móvil, zona independiente
+del navegador, validación del servidor y navegación/logout, sin altas ni ediciones.
+Requiere `.env` local y los parámetros privados/publicados de las pruebas Auth.
+
+`tests/e2e/clients-live.spec.ts` es el caso CRUD opt-in. Tras aplicar la reparación004,
+el caso remoto completo pasó con ambas cuentas: alta, edición y recarga, conflicto
+HTTP409/`PT409`/`client_version_conflict`, conflicto en pantalla con versión3,
+Volver a editar y guardado consciente con versión4, segundo alta y replay sin duplicado.
+La recuperación y limpieza guardada terminaron; el readback confirmó las cinco
+tablas de negocio en cero. El fixture del run anterior también quedó eliminado.
+Requiere autorización específica de fixtures y limpieza antes de habilitar
+`CRM_CLIENTS_LIVE_WRITE=1`; no correr en verificación readonly. Comprueba proyecto
+explícito saludable, dos identidades/binding correctos y cartera/historia vacías.
+Crea como máximo dos fixtures `WU006-<UUIDdelrun>` mediante UI/RPCs de usuario;
+prueba recarga, edición de fechas/estado, conflicto entre socios y replay sin
+duplicado. IDs, snapshots completos y pares actor/requestUUID viven sólo en memoria.
+La limpieza administrativa bloquea únicamente esas filas, exige snapshots exactos
+(incluyendo versión/fechas/nombre), prefix del run y solicitudes conocidas; detiene
+ante cambio inesperado. Borra dependencias y ledger sólo de esas identidades de
+fixtures, luego clientes, en una transacción. Un outcome incierto se lee antes de
+cualquier reintento; no usa TRUNCATE/reset ni borra datos anteriores o de terceros.
+Tabla/filtros y kanban quedan para unidades posteriores.
+
+La migración incremental `202610080004_rpc_conflict_errors.sql`, aplicada y
+verificada en el proyecto remoto, cambia los errores de negocio `client_version_conflict` e
+`incomplete_request` de `40001` a `PT409` (HTTP 409). El consumidor distingue sus
+mensajes exactos; una reserva incompleta conserva el intent y no muestra un
+conflicto de versión. No reescribe las tres migraciones anteriores ni altera grants.
+Antes de la reparación, el diagnóstico remoto devolvió HTTP 504 sin código; el
+caso legado `40001`/HTTP 500 de las pruebas unitarias es compatibilidad defensiva.
+Supabase documenta [reintentos del proveedor con errores 40001 personalizados](https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b).
+La versión `202610080004`/`rpc_conflict_errors` registra la fuente revisada fielmente;
+historial001–003, función, owner y permisos quedaron verificados. Duración JWT3600,
+signup deshabilitado y las dos membresías permanecen iguales. El caso CRUD requiere
+su permiso explícito de fixtures/limpieza; no borrar por prefijo genérico.

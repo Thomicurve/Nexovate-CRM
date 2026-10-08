@@ -1,0 +1,27 @@
+.panel { width: 100%; max-width: 800px; padding: 28px; display: grid; gap: 20px; background: var(--surface); border: 1px solid #243750; border-radius: 10px; }
+.panel h1 { font-size: 26px; }
+.panel form { display: grid; gap: 20px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.field { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.field label { font-size: 13px; }
+.field input, .field select, .field textarea { width: 100%; min-width: 0; height: 44px; padding: 10px 12px; background: #0b1426; color: var(--foreground); border: 1px solid #597697; border-radius: 5px; font: inherit; }
+.field textarea { height: 100px; resize: vertical; }
+.field input:read-only, .field textarea:read-only { opacity: 0.8; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.wide { grid-column: 1 / -1; }
+.hint { color: var(--secondary); font-size: 13px; }
+.hint:empty { display: none; }
+.error { color: var(--error); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.actions button, .actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border-radius: 6px; font: inherit; font-weight: 600; text-decoration: none; }
+.actions button { border: 0; background: var(--action); color: #fff; }
+.actions a { border: 1px solid #597697; color: var(--foreground); }
+.confirmed { display: grid; gap: 12px; margin: 0; }
+.confirmed dt { color: var(--secondary); font-size: 13px; }
+.confirmed dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.destination { display: grid; gap: 20px; }
+@media (max-width: 600px) {
+  .panel { padding: 20px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .page { margin: -8px; }
+}

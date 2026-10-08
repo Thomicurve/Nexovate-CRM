@@ -47,7 +47,7 @@ export async function runConcurrency({ sql, session }) {
     `SELECT public.change_client_status('10000000-0000-4000-8000-000000000003','${client.id}',1,'Reunión agendada')`);
   assert.equal(winner.status, 0, winner.stderr);
   assert.equal(conflict.status, 3);
-  assert.match(conflict.stderr, /40001: client_version_conflict/);
+  assert.match(conflict.stderr, /PT409: client_version_conflict/);
   assert.equal(response(winner.stdout).version, 2);
   sql(`SELECT test_support.assert_true(
     (SELECT version=2 AND status='Cerrado' FROM public.clients WHERE id='${client.id}'), 'concurrent exactly one write');
