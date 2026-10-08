@@ -1,11 +1,10 @@
 # Nexovate CRM
 
-Base de Next.js App Router en español, con login SSR y destino privado mínimo.
-El esquema, permisos y mutaciones SQL de TASK-003 están implementados y probados
-localmente. Las tres migraciones y las dos cuentas autorizadas están provisionadas
-en Supabase; ingreso, logout y renovación SSR tienen pruebas reales del proveedor.
-La expiración natural de JWT también está verificada; la duración final sigue en
-una hora. Pantallas de clientes y métricas quedan para tareas posteriores.
+CRM privado en español con Next.js App Router, login SSR, clientes en Kanban/tabla,
+filtros, formularios y dashboard histórico. Las cinco migraciones y las dos cuentas
+autorizadas están provisionadas en Supabase. Auth, persistencia, conflictos,
+movimientos y métricas tienen pruebas reales; la duración JWT final es una hora.
+La preparación para Vercel está documentada; no se ha realizado un despliegue.
 
 ## Instalación y ejecución
 
@@ -34,9 +33,10 @@ Los comandos de Next pueden cargar automáticamente un `.env` local existente.
 | `npm run test:e2e -- tests/e2e/<ruta>.spec.ts` | Playwright sobre servidor local de producción |
 | `npm run test:db` | Integración SQL de esquema/permisos/RLS en PostgreSQL local nuevo |
 
-`npm test` ejecuta las suites Auth unitarias/RTL actuales; Playwright descubre
-y ejecuta las pruebas Auth locales y live. Las primeras usan seams simulados;
-las live requieren el proyecto y las dos cuentas reales, sin sustituir Auth por mocks.
+`npm test` ejecuta las suites unitarias/RTL de Auth, clientes y métricas con seams
+simulados. Playwright verifica rutas locales e integración con las dos cuentas
+reales. Los casos live con fixtures son opt-in y requieren su permiso específico;
+no activar sus flags para una comprobación readonly ni sustituir Auth por mocks.
 Vitest descubre `tests/**/*.test.ts(x)` y excluye E2E/soporte. Playwright usará
 `tests/e2e/**/*.spec.ts` o `.test.ts`. No usar Vitest para Server Components
 asíncronos ni como sustituto de PostgreSQL/RLS real.
@@ -48,6 +48,46 @@ Chromium de Playwright, se puede usar Edge local estableciendo
 Con un servidor iniciado, `SMOKE_URL=http://127.0.0.1:3000` añade un chequeo HTTP/DOM.
 Playwright desactiva screenshots, video y trace; no crear snapshots visuales.
 Ejecutar `npm run build` antes de E2E: el runner inicia `npm run start`.
+
+`tests/e2e/crm-flow.spec.ts` comprueba navegación integrada de ambos socios con
+Tab/Enter/Escape, foco visible y etiquetas en escritorio1440/móvil390: login,
+dashboard cargado, Kanban/tabla, filtros, borrador cancelado y logout/protección.
+Es readonly para datos de negocio y exige cartera vacía; bloquea POSTs privados
+durante el recorrido. Reutiliza los casos aceptados para CRUD/historial/conflictos.
+Con `.env` y las variables privadas live descritas abajo, sin flags administrativas:
+
+```powershell
+$env:PLAYWRIGHT_CHANNEL='msedge'
+npm run test:e2e -- tests/e2e/crm-flow.spec.ts --workers=1 --retries=0
+```
+
+## Preparación para Vercel
+
+Estos pasos preparan una publicación futura; requieren elegir destino y autorizar
+el despliegue. [Vercel soporta Next.js directamente](https://vercel.com/docs/frameworks/full-stack/nextjs),
+sin un `vercel.json` adicional para esta aplicación.
+
+1. Seleccionar el repositorio/revisión aprobados, preset **Next.js** y raíz del
+   repositorio. Configurar [Node22.x](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
+   conforme a `engines`; Vercel administra sus versiones menores/parches.
+2. Usar instalación `npm ci`, build `npm run build` y directorio de salida automático
+   de Next.js, según la [configuración oficial](https://vercel.com/docs/builds/configure-a-build).
+   Conservar el lockfile. No ejecutar migraciones ni pruebas con fixtures en el build.
+3. Definir únicamente `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   de `.env.example` en cada entorno elegido (Production y, si corresponde, Preview/Development).
+   Deben existir antes del build: [Next incorpora las variables públicas al bundle](https://nextjs.org/docs/app/guides/environment-variables).
+   Un cambio requiere otro build. No cargar passwords, variables `CRM_*`, PAT,
+   contraseña DB, secret key ni `service_role`; pertenecen al harness o administración.
+4. Verificar el proyecto Supabase acordado, migraciones001–005 en orden, Email/Password,
+   signup deshabilitado y exactamente dos cuentas/bindings. El procedimiento de
+   provisión está abajo; no recrear ni reaplicar sobre un proyecto ya provisionado.
+   El login actual usa contraseña sin callback externo. Para futuros flujos de
+   confirmación/reset, revisar [Site URL y redirects](https://supabase.com/docs/guides/auth/redirect-urls)
+   contra el dominio autorizado; no agregar comodines o proveedores automáticamente.
+5. Después de una publicación autorizada, comprobar HTTPS, ingreso de ambos socios,
+   navegación, logout y rechazo posterior de rutas privadas con `no-store` en el
+   destino real. Cualquier prueba que escriba clientes necesita su lifecycle aprobado.
+   Build local e instrucciones no acreditan despliegue, URL ni configuración remota.
 
 ## PostgreSQL local para pruebas
 
@@ -196,7 +236,8 @@ Auth/REST, función/ACL y las cinco versiones de migración permanecieron intact
 Código en `src/`; alias `@/` → `src/`. Tailwind 4 usa PostCSS y configuración CSS.
 `components.json` y `src/lib/utils.ts` preparan shadcn/ui. El login reproduce
 DESIGN-2 aprobado en `crm-nexovate.pen` y carga IBM Plex Sans desde el paquete
-local, sin peticiones a Google Fonts. Las demás pantallas siguen pendientes.
+local, sin peticiones a Google Fonts. Dashboard, Kanban, tabla y formularios
+implementan también el diseño aprobado.
 Next tiene `agentRules: false` para preservar las instrucciones locales de agentes.
 
 Referencias oficiales: [Next/Vitest](https://nextjs.org/docs/app/guides/testing/vitest),
@@ -240,7 +281,8 @@ Para otra provisión autorizada, conservar estas guardas:
 3. Revisar historial de migraciones y esquema del proyecto. Aplicar, en orden,
    las migraciones `202610070001_shared_crm_schema.sql`,
    `202610070002_atomic_client_mutations.sql` y
-   `202610070003_membership_bridge.sql` y `202610080004_rpc_conflict_errors.sql`
+   `202610070003_membership_bridge.sql`, `202610080004_rpc_conflict_errors.sql` y
+   `202610080005_dashboard_metrics.sql`
    sólo si aún no están aplicadas; no recrear
    tablas ni repetir scripts a ciegas sobre datos existentes.
 4. En una transacción administrativa, consultar `public.crm_members` y comprobar
