@@ -7,7 +7,7 @@
 
 - **Modo:** ASK_EACH_TASK, elegido explícitamente en el pedido inicial: “vamos a trabajar tarea por tarea” y “no te vas a mandar a hacer todas las tareas iniciales de una”. No se pregunta nuevamente por el modo.
 - **Aprobación del plan:** APPROVE_CURRENT_PLAN, SPEC-1/PLAN-1. Respuesta del usuario al pedido de aprobación: “Dale comenza con la task-001” (2026-10-07). Incluye inicio exclusivo de TASK-001 y los commits locales propuestos por unidad revisada.
-- **Estado de preparación:** CHECKING, TASK-007 IN_PROGRESS. Usuario autorizó explícitamente los dos pedidos concretos: “perfecto, te autorizo a aplicar la migracion y a ejecutar la prueba real”. Incluye005+registro y lifecycle TASK-007 revisado con hasta dos fixtures por ejecución, cleanup propio y repetición independiente. WU-009 entregada en `d4e962ffee1c386498a1a374572bab248090e5ae`; WU-010 local/revisión técnica aceptadas, falta ejecutar evidencia real y su aceptación/commit. TASK-008 TODO. Sin nueva aprobación requerida para ese alcance.
+- **Estado de preparación:** WAITING_FOR_USER, TASK-007 DONE. WU-009 entregada en `d4e962ffee1c386498a1a374572bab248090e5ae` y WU-010 en `90e32dc9388b8591a07f523496484dab8ff6c66b`. Migración005 aplicada/verificada bajo autorización específica; dos pruebas reales y limpieza propia completas, verificación independiente y revisión APPROVED. TASK-008 TODO, pendiente de continuación explícita en ASK_EACH_TASK.
 - **Primera tarea del plan:** TASK-001, completada con su autorización consumida. Cada siguiente tarea requiere continuación explícita.
 - **TDD:** ON por pedido del usuario. Para comportamiento: prueba significativa, RED observado, implementación mínima, GREEN y refactor. Setup y diseño son N/A; no se fabrican tests ni evidencias RED/GREEN.
 - **Roles:** Orchestrator conserva decisiones y documentos. Un único Implementer escribe aplicación. Se detiene antes de comprobaciones/revisión independientes; Reviewer revisa cada unidad sustancial. Autenticación, autorización, transacciones, migraciones e instalación requieren verificación independiente adicional.
@@ -258,7 +258,7 @@ Agregar la vista inicial kanban con seis columnas y alternancia a tabla. Reutili
 
 ### TASK-007 — Dashboard con métricas históricas
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-009, AC-010, AC-011 (dashboard)
+**Estado:** DONE · **Criterios:** AC-009, AC-010, AC-011 (dashboard)
 
 Agregar totales y series de Contactados, Reuniones agendadas y Cerrados con selector de rango y agrupación día/mes/año. Consultar primeros hitos respetando autorización y representar períodos vacíos.
 
@@ -311,6 +311,8 @@ Agregar totales y series de Contactados, Reuniones agendadas y Cerrados con sele
 
 - **Aceptación final WU-010:** Reviewer APPROVED/STOPPED sin hallazgos, digest13 `ee3e39964a6e2740bd0bee46368974b4b7730de3f9edfbdf225cbf62f4a47d30` recalculado y única deltaREADME verificada. AC-009/010/011dashboard aceptados con TDD/local272/20/static/build/readonly, dos ejecuciones reales y verificación independiente de005/guard/ACL/historial/configuración/cleanup. DESIGN-2 vigente cubierto, ningún gap material pendiente para unidad. READY_TO_CONTINUE sólo Delivery local `feat: display CRM dashboard trends` de13fuentes+plan; TASK-007 sigue IN_PROGRESS hasta commit confirmado. Sin push/PR/merge/deploy/otraTask.
 
+- **Entrega WU-010 y cierre TASK-007:** commit local `90e32dc9388b8591a07f523496484dab8ff6c66b` (`feat: display CRM dashboard trends`), padre `d4e962ffee1c386498a1a374572bab248090e5ae`, rama `feature/crm-mvp`;14rutas exactas (13fuentes+plan), +917/-19, blobs normalizados/modos100644/digest aprobados. Orchestrator verificó SHA/padre/título/rutas/status, índice vacío/tracked limpio; workflow/AGENTS/assets/secretos preservados. WU-009 y WU-010 aceptadas/entregadas, AC-009/010/011dashboard DONE,272/20/static/build/TDD/SQL/readonly y dos livePASS23,7s/21,5s reutilizados, cleanupbusiness5=0 y Auth/REST/historial/función estables. Feature WAITING_FOR_USER, TASK-008 TODO; checkpoint siguiente validación integrada/preparaciónVercel, sin deploy ni otra ejecución automática.
+
 ### TASK-008 — Validación del MVP y preparación para Vercel
 
 **Estado:** TODO · **Criterios:** AC-001–AC-012 (integración), especialmente AC-012
@@ -334,8 +336,8 @@ Diseño Pencil, entorno SQL local aislado y configuración/cuentas/permisos Supa
 
 ## Siguiente paso
 
-- **Tarea completada:** TASK-006 — Kanban, drag and drop y cambio de vista, DONE, commit WU-008 `7697ae05639adb0a55cfb30c3d9b10c73353c598`. Pruebas locales, dos ejecuciones reales completas y revisión aceptadas; limpieza confirmada, sin datos de prueba pendientes.
-- **Tarea actual:** TASK-007 IN_PROGRESS. WU-009 SQL/dominio DONE en commit `d4e962ffee1c386498a1a374572bab248090e5ae`; WU-010 UI implementada localmente, digest13 `364f7e4f0cd5cc3800fc87b4e11a5496c11e109117447de94b53466cc4cb00a6`, revisada sin defectos pero sin commit ni aceptación final por integración real pendiente. Fresh272tests/20suites/static/build/Edge readonly PASS, Supabase healthy/dos cuentas/cinco tablas vacías/005 ausente/config original.
-- **Checkpoint:** CHECKING, ASK_EACH_TASK. ContinuaciónTASK-007 consumida, TASK-008 TODO. Ambos permisos concretos005+registro y prueba realTASK-007/cleanup/repetición independiente recibidos. Ejecutar sólo fuente revisada/hash/ACL/version y preservar originalhistory/config/counts; ACLservice_roleheredada revisada y aceptada. Preflight005 exacta ANTES de fixtures, case dashboard exclusivo flags1/0/0, max2/cleanupown; luego fresh repetición/revisión/commitWU010/cierreTask007. No repetir SQL/AuthTTL/localchecks intactos sin cambio o concern. TASK-008 requiere su checkpoint posterior.
+- **Tarea completada:** TASK-007 — Dashboard con métricas históricas, DONE. WU-009 `d4e962ffee1c386498a1a374572bab248090e5ae`, WU-010 `90e32dc9388b8591a07f523496484dab8ff6c66b`. Totales históricos/rango y seriesDía/Mes/Año, estados y tablas/gráficos accesibles; migración005 exacta aplicada/verificada, pruebas locales272/20/static/build/SQL y dos ejecuciones reales/revisión aceptadas. Limpieza confirmada y configuración intacta, sin fixtures pendientes.
+- **Siguiente tarea propuesta:** TASK-008 — Validación del MVP y preparación para Vercel, TODO. Depende de TASK-001–007 aceptadas; cubrir integraciones pendientes reutilizando evidencia válida y preparar instrucciones/configuración de despliegue. La preparación no autoriza publicar en Vercel.
+- **Checkpoint:** WAITING_FOR_USER, ASK_EACH_TASK. ContinuaciónTASK-007 y permisos concretos remotos ejecutados; esperar decisión CONTINUE_TASK TASK-008, REVIEW_CURRENT o PAUSE. No comenzar TASK-008 ni repetir pruebas/remoto sin necesidad o alcance vigente.
 - **Autoridad:** SPEC-1/PLAN-1/TDD ON y commits locales de unidades revisadas vigentes. Push/PR/merge/deploy y nuevos cambios de Supabase conservan permiso concreto independiente.
 - **Memoria:** runtime sin registro autorizado; escrituras de memoria suspendidas por hook. Conservar continuidad local sin inventar sesión.
