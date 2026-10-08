@@ -1,0 +1,11 @@
+.toast { position: fixed; z-index: 100; top: 24px; right: 24px; width: 400px; max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 12px; padding: 12px; background: #16283e; color: #eef3f8; border: 1px solid #597697; border-radius: 8px; box-shadow: 0 8px 24px #0005; animation: appear 150ms ease-out; }
+.icon { color: #92cdb4; font-size: 22px; padding-left: 4px; }
+.message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.message strong { font-size: 14px; font-weight: 600; }
+.message p { margin-top: 4px; color: #b8c4d5; font-size: 13px; }
+.toast button { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 24px; cursor: pointer; }
+.toast button:hover { background: #243750; }
+.toast button:focus-visible { outline: 2px solid #a6caff; outline-offset: 2px; }
+@keyframes appear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 600px) { .toast { top: 16px; right: 16px; width: calc(100% - 32px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }

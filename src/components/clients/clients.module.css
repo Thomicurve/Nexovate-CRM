@@ -1,0 +1,122 @@
+.panel { width: 100%; max-width: 800px; padding: 28px; display: grid; gap: 20px; background: var(--surface); border: 1px solid #243750; border-radius: 10px; }
+.panel h1 { font-size: 26px; }
+.panel form { display: grid; gap: 20px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.field { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.field label { font-size: 13px; }
+.field input, .field select, .field textarea { width: 100%; min-width: 0; height: 44px; padding: 10px 12px; background: #0b1426; color: var(--foreground); border: 1px solid #597697; border-radius: 5px; font: inherit; }
+.field textarea { height: 100px; resize: vertical; }
+.field input:read-only, .field textarea:read-only { opacity: 0.8; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.wide { grid-column: 1 / -1; }
+.hint { color: var(--secondary); font-size: 13px; }
+.hint:empty { display: none; }
+.error { color: var(--error); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.actions button, .actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border-radius: 6px; font: inherit; font-weight: 600; text-decoration: none; }
+.actions button { border: 0; background: var(--action); color: #fff; }
+.actions a { border: 1px solid #597697; color: var(--foreground); }
+.confirmed { display: grid; gap: 12px; margin: 0; }
+.confirmed dt { color: var(--secondary); font-size: 13px; }
+.confirmed dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.destination { display: grid; gap: 20px; }
+.listHeading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.listHeading h1 { font-size: 26px; }
+.filterBar { display: flex; align-items: end; gap: 12px; }
+.filterBar > .desktopFilter:first-child { width: 300px; min-width: 0; }
+.statesTrigger { display: grid; gap: 8px; width: 240px; }
+.statesTrigger > span { font-size: 13px; }
+.statesTrigger button { height: 44px; text-align: left; padding: 10px 12px; border: 1px solid #597697; border-radius: 5px; background: #0b1426; color: var(--foreground); }
+.barDates { display: flex; gap: 12px; }
+.barDates .field { width: 180px; }
+.mobileFilter, .mobileContact { display: none; }
+.filterPanel { width: 100%; max-width: 580px; padding: 24px; display: grid; gap: 20px; background: var(--surface); border: 1px solid #243750; border-radius: 10px; }
+.filterPanel h1 { font-size: 26px; }
+.filterPanel form { display: grid; gap: 20px; }
+.filterDates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stateOptions { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.stateOptions legend { font-size: 13px; padding: 0 0 8px; }
+.stateOptions label { min-height: 44px; display: flex; gap: 12px; align-items: center; padding: 8px 18px; border: 1px solid #243750; border-radius: 6px; cursor: pointer; }
+.stateOptions .selectedState { border-color: var(--focus); }
+.stateOptions input { accent-color: var(--action); width: 16px; height: 16px; }
+.filterActions { flex-direction: column; align-items: start; }
+.filterActions .secondaryButton { background: transparent; border: 1px solid #597697; color: var(--foreground); }
+.tableSurface { width: 100%; border: 1px solid #243750; border-radius: 10px; background: var(--surface); }
+.table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 16px; overflow-wrap: anywhere; }
+.table th { color: var(--secondary); font-size: 13px; font-weight: 500; }
+.table td { border-top: 1px solid #243750; vertical-align: middle; }
+.table th:first-child { width: 28%; }
+.table th:last-child { width: 90px; }
+.clientName { display: block; font-weight: 600; }
+.company { display: block; margin-top: 4px; color: var(--secondary); font-size: 13px; }
+.status { display: inline-block; padding: 5px 8px; border: 1px solid #597697; border-radius: 6px; }
+.editLink { display: inline-flex; align-items: center; min-height: 44px; color: var(--focus); }
+.listState { display: grid; gap: 12px; padding: 32px; border: 1px solid #243750; border-radius: 10px; background: var(--surface); }
+.pagination { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.pagination a { display: inline-flex; min-height: 44px; align-items: center; color: var(--focus); }
+.destination { min-width: 0; gap: 24px; }
+.destination > h1 { font-size: 26px; }
+.viewBar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.viewSwitch { display: flex; gap: 8px; }
+.viewSwitch a { display: inline-flex; min-height: 44px; align-items: center; padding: 10px 16px; border: 1px solid #243750; border-radius: 6px; text-decoration: none; }
+.viewSwitch a[aria-current] { background: var(--action); border-color: var(--action); color: white; }
+.filterLock { display: contents; border: 0; padding: 0; margin: 0; }
+.filterLock > .desktopFilter:first-child { width: 300px; min-width: 0; }
+.kanbanRegion { min-width: 0; display: grid; gap: 16px; }
+.board { display: grid; grid-template-columns: repeat(6, minmax(230px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; min-width: 0; }
+.column { min-height: 677px; background: #0b1426; padding: 14px 8px; border: 2px solid transparent; border-radius: 6px; display: flex; flex-direction: column; gap: 14px; }
+.dropTarget { background: #173251; border-color: #a6caff; }
+.dropCue { color: #a6caff; font-size: 13px; font-weight: 600; }
+.column header { display: grid; gap: 6px; }
+.column h2 { font-size: 16px; font-weight: 500; }
+.column header span { color: var(--secondary); font-size: 12px; }
+.card { display: grid; gap: 8px; padding: 16px; background: var(--surface); border: 2px solid #243750; border-radius: 8px; position: relative; overflow-wrap: anywhere; cursor: grab; }
+.dragging { border-color: #a6caff; box-shadow: 0 8px 24px #0005; cursor: grabbing; }
+.card h3 { font-size: 17px; font-weight: 500; }
+.card p { font-size: 13px; }
+.card .cardCompany { color: var(--secondary); font-size: 14px; }
+.cardActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cardActions a, .cardActions button { display: inline-flex; align-items: center; min-height: 44px; font: inherit; font-size: 13px; color: var(--focus); }
+.cardActions button { border: 0; background: transparent; text-align: left; cursor: grab; touch-action: none; }
+.cardActions button:active { cursor: grabbing; }
+.visibleState { display: none; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.destination [aria-disabled="true"] { cursor: default; opacity: 0.65; }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+@media (max-width: 768px) {
+  .visibleState { display: grid; }
+  .board { display: block; overflow: visible; padding-bottom: 0; }
+  .column { display: none; min-height: 677px; padding: 14px; gap: 16px; }
+  .visibleColumn { display: flex; }
+  .cardActions button { display: none; }
+  .viewBar { align-items: stretch; flex-direction: column; }
+  .viewBar > .actions a { width: 100%; }
+}
+@media (max-width: 1470px) {
+  .filterBar .desktopFilter { display: none; }
+  .statesTrigger { width: 100%; }
+  .mobileFilter { display: inline; }
+}
+@media (max-width: 600px) {
+  .panel { padding: 20px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .page { margin: -8px; }
+  .destination, .filterPanel { margin: -8px; width: calc(100% + 16px); }
+  .filterPanel { padding: 0; background: transparent; border: 0; }
+  .filterDates { grid-template-columns: minmax(0, 1fr); }
+  .filterActions button[type="submit"] { width: 100%; }
+  .listHeading { flex-wrap: wrap; }
+  .table .optionalColumn, .company { display: none; }
+  .table tr { display: grid; grid-template-columns: minmax(0, 1fr) 130px; }
+  .table th:first-child { width: auto; }
+  .table th:last-child { display: none; }
+  .table td:first-child { grid-column: 1; grid-row: 1 / span 2; }
+  .table td:nth-child(3) { grid-column: 2; grid-row: 1; }
+  .table td:last-child { grid-column: 2; grid-row: 2; padding-top: 0; }
+  .table tbody tr { border-top: 1px solid #243750; }
+  .table td { border-top: 0; }
+  .table th, .table td { padding: 12px 8px; }
+  .mobileContact { display: block; font-size: 12px; color: var(--secondary); margin-top: 6px; }
+  .listState { padding: 24px; }
+}

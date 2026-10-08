@@ -98,6 +98,17 @@ Autenticación/RLS, migraciones, transacciones y configuración de secretos requ
 
 Los cambios de aplicación se entregan por unidades revisadas y commits locales autorizados. Migraciones se prueban en una base aislada antes de cualquier operación remota; no se resetea una base existente. Ninguna configuración, usuario, migración ni deploy remoto se modifica con la sola preparación del plan.
 
+## Ampliación — SPEC-2 (aprobada junto a PLAN-2 y DESIGN-3)
+
+El usuario solicitó mejorar el feedback y la interacción del panel existente tras completar el MVP. SPEC-1 y sus resultados se conservan; esta ampliación no agrega pantallas, estados comerciales, cambios de Supabase ni despliegue.
+
+- **AC-013 — Guardado confirmado:** tras crear o actualizar exitosamente, volver al listado general de clientes conservando la vista y filtros válidos de retorno; mostrar una notificación clara de cliente creado o actualizado que sobreviva a esa navegación. Un fallo, conflicto o resultado incierto conserva el formulario y sus opciones de recuperación, sin anunciar éxito ni abandonar datos pendientes.
+- **AC-014 — Arrastre desde la tarjeta:** iniciar drag con puntero desde cualquier zona no interactiva de la tarjeta; Editar y otros controles siguen funcionando sin iniciar un arrastre accidental. Conservar movimiento con teclado, cancelación, versión/conflictos y replay del intento. Adaptar touch/scroll sin bloquear el uso móvil.
+- **AC-015 — Destino y feedback del movimiento:** resaltar la columna válida bajo la tarjeta con borde/fondo y señal textual, además de una tarjeta distinguible durante drag. Quitar el resaltado al salir, cancelar o terminar. Notificar cambio de estado sólo después de respuesta confirmada; errores/conflictos siguen explicando cómo recuperarse. Soltar en origen, fuera de columnas o cancelar no crea una mutación ni una notificación de éxito.
+- **AC-016 — Orden del kanban:** columnas y selector móvil en orden Contactado, Interesado, Reunión agendada, Cerrado, Sin respuesta y Respuesta negativa. El orden es de presentación del kanban; se conservan los seis estados, sus colores, filtros y semántica histórica.
+
+DESIGN-3 aprobado: extensión de la paleta oscura/azul y tipografía existentes, notificación global en la esquina superior derecha de escritorio y ajustada al ancho móvil, mensaje en español, cierre accesible y anuncio de lector de pantalla sin robar foco. Resaltado de destino azul con indicación «Soltar aquí», movimiento discreto y respeto a preferencia de movimiento reducido. Documento/nodos concretos y verificación se conservan en task.md. Usuario confirmó el candidato editable y PLAN-2/SPEC-2 mediante «Perfecto lo veo bien, podes continuar con la tarea», en respuesta al pedido conjunto de aprobación de TASK-009.
+
 ## Referencias técnicas consultadas
 
 - [Next.js: pruebas](https://nextjs.org/docs/app/guides/testing) y [Vitest](https://nextjs.org/docs/app/guides/testing/vitest).
