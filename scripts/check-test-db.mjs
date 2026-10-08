@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
   existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
@@ -7,6 +7,7 @@ import {
 import { createServer } from "node:net";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runConcurrency } from "../tests/support/sql-concurrency.mjs";
 
 const root = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
 const local = join(root, ".local-postgres");
@@ -87,10 +88,31 @@ try {
   }
   const tests = readdirSync(join(root, "supabase/tests")).filter((name) => name.endsWith(".sql")).sort();
   if (!tests.length) throw new Error("No hay pruebas SQL; no se acepta un falso GREEN");
-  for (const file of tests) {
+  for (const file of process.argv.includes("--concurrency-only") ? [] : tests) {
     sql(readFileSync(join(root, "supabase/tests", file), "utf8"));
     console.log(`PASS ${file}`);
   }
+  const session = (source, applicationName) => new Promise((accept) => {
+    const child = spawn(exe("psql"), [...connect, "-Atq"], {
+      cwd: root, env: { ...env, PGAPPNAME: applicationName }, windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => child.kill(), 15_000);
+    child.stdout.setEncoding("utf8").on("data", (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => { stderr += chunk; });
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      accept({ status: -1, stdout, stderr: error.message });
+    });
+    child.once("close", (status) => {
+      clearTimeout(timeout);
+      accept({ status, stdout, stderr });
+    });
+    child.stdin.on("error", () => {});
+    child.stdin.end(source);
+  });
+  await runConcurrency({ sql, session });
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

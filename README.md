@@ -1,7 +1,9 @@
 # Nexovate CRM
 
-Base de Next.js App Router en español. TASK-001 prepara herramientas y una página
-neutra; login, clientes, datos y dashboard se implementarán en tareas posteriores.
+Base de Next.js App Router en español, con herramientas y una página neutra.
+El esquema, permisos y mutaciones SQL de TASK-003 están implementados y probados
+localmente. Auth, pantallas de clientes y dashboard quedan para tareas posteriores;
+la aplicación todavía no está integrada con un Supabase remoto.
 
 ## Instalación y ejecución
 
@@ -82,17 +84,59 @@ claims sintéticos. Prueban PostgreSQL real con `SET ROLE` sin propietario,
 superusuario ni BYPASSRLS; no verifican firma JWT, Supabase Auth, API ni usuarios
 remotos. Las aserciones SQL fallan con exit no cero, sin mocks ni falsos verdes.
 
-WU-003 concede lectura compartida a dos UUID de membresía explícita (slots 1/2),
-deniega anónimo/tercero y bloquea DML directo sobre clientes, miembros e historial.
-No provisiona miembros reales. Las escrituras compartidas vía RPC, correcciones,
-atomicidad, idempotencia y concurrencia se implementarán en WU-004; no están
-habilitadas todavía. Mantener `crm_private` fuera de los schemas expuestos del API.
+Las migraciones conceden lectura compartida a dos UUID de membresía explícita
+(slots 1/2), deniegan anónimo/tercero y bloquean DML directo sobre clientes,
+miembros, historial, auditoría y ledger. No provisionan miembros reales.
+Mantener `crm_private` fuera de los schemas expuestos del API.
+
+## Contrato de mutaciones SQL
+
+Los miembros pueden ejecutar tres RPCs; el actor se deriva de `auth.uid()` y se
+valida la membresía en cada llamada, incluidos replays:
+
+| RPC | Parámetros |
+| --- | --- |
+| `create_client` | `p_request_id` UUID, `p_payload` objeto JSON |
+| `update_client` | UUID request/client, `p_expected_version` bigint, objeto JSON parcial |
+| `change_client_status` | UUID request/client, versión esperada, `p_status` del enum |
+
+Payload: `name`, `company`, `rubro`, `email`, `phone`, `notes`, `contact_at`,
+`meeting_at`; actualización también acepta `status`. Todos son strings o null,
+con restricciones del modelo; `name` y `contact_at` no admiten null. Campos
+omitidos se conservan al editar; null limpia los opcionales. Alta exige nombre,
+inicia siempre Contactado y usa tiempo de servidor si se omite `contact_at`.
+No se aceptan actor, ID, versión ni fechas de auditoría dentro del payload.
+
+Cada solicitud necesita un UUID nuevo por intención, conservándolo al reintentar
+la misma llamada. Ledger privado por `(actor, request_id)` compara operación,
+cliente, versión y JSON canónico; replay exacto devuelve la respuesta original,
+aunque el cliente haya avanzado después. Refrescar lectura si se necesita estado
+actual. Cambiar payload/operación/versión con ese ID produce SQLSTATE `22023`;
+para una intención nueva usar otro UUID. Conflicto de versión produce `40001`
+(`client_version_conflict`); recuperar estado y decidir la siguiente operación.
+No reintentar una escritura obsoleta cambiando silenciosamente su versión.
+
+Cliente, eventos, primeros hitos, corrección de contacto y ledger se guardan en
+la misma transacción. Sólo cambios efectivos de estado agregan eventos; volver
+no duplica hitos ni salir los borra. Contactado usa `contact_at`; corrección mueve
+ese hito y registra old/new/actor/instante sin reescribir eventos. `meeting_at` no
+mueve el hito de Reunión agendada. No hay eliminación expuesta ni bypass desde app.
+
+`npm run test:db` ejecuta SQL y tres carreras reales de sesiones psql distintas:
+versión obsoleta, replay idéntico y payload cambiado concurrente. El harness exige
+PIDs distintos y observa espera `Lock` mientras la primera transacción mantiene
+su escritura abierta; no sustituye concurrencia con llamadas seriales. Para
+enfocar esas carreras: `npm run test:db -- --concurrency-only`. Una pausa SQL de
+tres segundos mantiene el lock para observar la segunda conexión; no es un mock.
+Fixtures y limitaciones Supabase/JWT anteriores siguen aplicando. Los wrappers
+usan SECURITY DEFINER/search_path vacío; el worker privado no tiene EXECUTE caller.
 
 ## Convenciones
 
 Código en `src/`; alias `@/` → `src/`. Tailwind 4 usa PostCSS y configuración CSS.
 `components.json` y `src/lib/utils.ts` preparan shadcn/ui; no hay componentes
-funcionales añadidos ni diseño aprobado. Los tokens se completarán con TASK-002.
+funcionales añadidos. DESIGN-2 está aprobado en `crm-nexovate.pen`; componentes,
+pantallas y tokens de la aplicación se implementarán en tareas posteriores.
 Next tiene `agentRules: false` para preservar las instrucciones locales de agentes.
 
 Referencias oficiales: [Next/Vitest](https://nextjs.org/docs/app/guides/testing/vitest),
