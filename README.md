@@ -134,6 +134,27 @@ tres segundos mantiene el lock para observar la segunda conexión; no es un mock
 Fixtures y limitaciones Supabase/JWT anteriores siguen aplicando. Los wrappers
 usan SECURITY DEFINER/search_path vacío; el worker privado no tiene EXECUTE caller.
 
+## Métricas históricas — WU-009
+
+La migración local preparada `202610080005_dashboard_metrics.sql` agrega el RPC
+readonly `dashboard_metrics(p_from date, p_until date, p_grouping text)`; aún no
+está aplicada en Supabase. Necesita revisión y autorización específica de aplicación
+remota antes de conectar el dashboard. Usa SECURITY INVOKER, RLS y membresía explícita;
+EXECUTE sólo para authenticated. Una consulta STABLE mantiene el mismo snapshot
+para totales y series, sin descargar hitos mediante paginación REST.
+
+`src/lib/metrics/server.ts` comprueba membresía antes de validar parámetros o consultar.
+`desde`, `hasta` y `agrupacion=day|month|year` usan fechas inclusivas en Buenos Aires;
+el valor inicial son los últimos siete días locales, incluido hoy. Cada métrica
+incluye total histórico, total del rango y buckets calendario en orden, incluso ceros.
+Las series con más de 2.000 períodos devuelven `too_many_buckets`, cardinalidad y
+totales completos, sin truncar; elegir Mes/Año o reducir el rango (en Año, reducirlo).
+Errores de consulta o respuestas incoherentes producen `unavailable`, nunca ceros.
+
+`npm test -- tests/metrics` comprueba parser/contrato/boundary mediante seams SDK;
+`npm run test:db` demuestra agregación, historial, zona, permisos y más de 1.000 hitos
+en PostgreSQL nuevo aislado. Ninguno acredita aplicación remota de esta migración.
+
 ## Convenciones
 
 Código en `src/`; alias `@/` → `src/`. Tailwind 4 usa PostCSS y configuración CSS.
