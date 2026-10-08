@@ -1,0 +1,28 @@
+# Merge into project configuration; requires a trusted project.
+# Model and approval policy inherit the user's configuration.
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GITHUB_MCP_TOKEN"
+enabled = true
+# enabled_tools = ["EXACT_OBSERVED_SERVER_TOOL_NAMES"]
+
+[mcp_servers.pencil]
+command = "E:\\Pen\\resources\\app.asar.unpacked\\out\\mcp-server-windows-x64.exe"
+args = ["--app", "desktop"]
+enabled = true
+# Designer only: inspected text docs/native editable nodes. No captures/images/exports.
+
+[mcp_servers.engram]
+command = "engram"
+args = ["mcp"]
+enabled = true
+# Verify installed binary/transport and exact tools; Orchestrator only.
+
+[mcp_servers.codegraph]
+command = "codegraph"
+args = ["serve", "--mcp"]
+enabled = true
