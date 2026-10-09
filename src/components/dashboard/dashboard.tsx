@@ -1,10 +1,11 @@
 "use client";
-import Link from "next/link";
+import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import type { MetricsQuery, MetricsResult } from "@/lib/metrics/model";
 import { parseMetricsQuery, type MetricsSearchParams } from "@/lib/metrics/query";
 import { MetricChart, formatPeriod } from "./metric-chart";
+import { usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./dashboard.module.css";
 
 const titles = ["Contactados", "Reuniones agendadas", "Cerrados"];
@@ -15,6 +16,7 @@ function Controls({ query, from, until, refreshing }: { query: MetricsQuery; fro
   const [draftFrom, setFrom] = useState(from), [draftUntil, setUntil] = useState(until);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  usePendingLoading(pending);
   function apply(next: MetricsQuery) {
     const parsed = parseMetricsQuery({ desde: next.from, hasta: next.until, agrupacion: next.grouping });
     if (!parsed.ok) { setError(parsed.message); return; }
@@ -37,7 +39,6 @@ function Controls({ query, from, until, refreshing }: { query: MetricsQuery; fro
       <button className={styles.primary} type="submit" disabled={pending || refreshing}>Aplicar rango</button>
     </form>
     {error && <p className={styles.error} role="alert">{error}</p>}
-    {pending && <p role="status" className={styles.hint}>Actualizando métricas…</p>}
   </div>;
 }
 
@@ -46,7 +47,9 @@ export function Dashboard({ result: incoming, params }: { result: MetricsResult;
   const [result, setResult] = useState(incoming), [seenIncoming, setSeenIncoming] = useState(incoming);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
   const [pending, startTransition] = useTransition();
+  usePendingLoading(pending);
   const [seenPending, setSeenPending] = useState(false);
+  usePendingLoading(refreshing);
   const refreshGuard = useRef(false);
   useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
   if (incoming !== seenIncoming) {
@@ -81,7 +84,6 @@ export function Dashboard({ result: incoming, params }: { result: MetricsResult;
     <div className={styles.heading}><h1>Dashboard</h1><button type="button" className={styles.refreshButton} disabled={refreshing || pending} onClick={refresh}>
       {refreshing || pending ? "Actualizando…" : "Actualizar"}</button></div>
     <div ref={firstDate}><Controls key={`${from}/${until}/${query.grouping}`} query={query} from={from} until={until} refreshing={refreshing || pending} /></div>
-    {(refreshing || pending) && <p role="status" className={styles.hint}>Actualizando métricas…</p>}
     {refreshError && hasTotals && <div className={styles.refreshError}>
       <p className={styles.error} role="alert">No pudimos actualizar las métricas. Se conservan los últimos datos.</p>
       <button type="button" className={styles.refreshButton} disabled={refreshing || pending} onClick={refresh}>Reintentar actualización</button></div>}

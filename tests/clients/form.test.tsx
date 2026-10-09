@@ -1,3 +1,4 @@
+import { WithLoading } from "../ui/loading-test-support";
 import { act, render as renderUi, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotificationProvider } from "@/components/ui/notifications";
@@ -10,7 +11,7 @@ import { confirmed, requestId } from "./fixture";
 const props = { requestId, initialContact: "2026-10-07T12:30", returnTo: "/clientes?nombre=Socio" };
 const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }) }));
-const render = (ui: ReactNode) => renderUi(ui, { wrapper: NotificationProvider });
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: ({ children }) => <NotificationProvider><WithLoading>{children}</WithLoading></NotificationProvider> });
 describe("approved client form interaction", () => {
   beforeEach(() => vi.clearAllMocks());
   it("delivers a confirmed save through a modal callback without route navigation", async () => {
@@ -71,7 +72,7 @@ describe("approved client form interaction", () => {
     const user = userEvent.setup(); await user.type(screen.getByLabelText("Nombre *"), "Prospecto");
     await user.click(screen.getByRole("button", { name: "Crear cliente" }));
     expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Guardando cliente…");
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
     await act(async () => finish({ status: "error", message: "Conexión", retry: true }));
   });
   it("retains entered data, locks same intent after ambiguous error and reuses request UUID", async () => {

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { safeReturnPath, type Client } from "@/lib/clients/model";
 import { ClientForm, type ClientFormProps } from "./client-form";
+import { lockPageScroll, usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./clients.module.css";
 
 type Props = ClientFormProps & { onClose?: () => void; onSaved?: (client: Client) => void };
@@ -12,15 +13,16 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
   const dialog = useRef<HTMLDialogElement>(null), blocked = useRef(false), closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locked, setLocked] = useState(false), [closing, setClosing] = useState(false);
   const exit = useRef(false);
+  const [navigating, transition] = useTransition();
+  usePendingLoading(navigating);
   useEffect(() => {
     const surface = dialog.current!, opener = document.activeElement as HTMLElement | null;
-    const overflow = document.body.style.overflow;
+    const releaseScroll = lockPageScroll();
     surface.showModal();
-    document.body.style.overflow = "hidden";
     surface.querySelector<HTMLInputElement>('input[name="name"]')?.focus();
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current);
-      surface.close(); document.body.style.overflow = overflow;
+      surface.close(); releaseScroll();
       if (opener?.isConnected) opener.focus();
       else document.querySelector<HTMLElement>('[aria-label="Vista de clientes"] [aria-current]')?.focus();
     };
@@ -32,7 +34,7 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
     closeTimer.current = setTimeout(() => {
       if (saved && onSaved) onSaved(saved);
       else if (onClose) onClose();
-      else router.replace(safeReturnPath(form.returnTo));
+      else transition(() => router.replace(safeReturnPath(form.returnTo)));
     }, delay);
   }
   return <dialog ref={dialog} aria-labelledby={titleId} aria-modal="true" className={styles.modal} data-closing={closing || undefined}

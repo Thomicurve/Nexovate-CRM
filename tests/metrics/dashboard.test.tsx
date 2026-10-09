@@ -1,4 +1,6 @@
-import { act, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { WithLoading } from "../ui/loading-test-support";
+import { act, render as renderUi, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "@/components/dashboard/dashboard";
@@ -12,6 +14,8 @@ function data(historical = 12, range = 3): MetricsData {
   return { kind: "ready", ...query, metrics: METRIC_STATUSES.map((status) => ({ status, historicalTotal: historical,
     rangeTotal: range, buckets: ["2026-10-07", "2026-10-08", "2026-10-09"].map((start, i) => ({ start, count: i === 1 ? range : 0 })) })) };
 }
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
+
 describe("dashboard totals, range and accessible periods", () => {
   beforeEach(() => vi.clearAllMocks());
   it("refreshes once and keeps confirmed metrics and range after a recoverable failure", async () => {
@@ -39,7 +43,7 @@ describe("dashboard totals, range and accessible periods", () => {
     f.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<Dashboard result={data()} params={{}} />);
     await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Actualizando métricas");
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
     await act(async () => finish());
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");

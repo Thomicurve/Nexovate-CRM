@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "@fontsource/ibm-plex-sans/latin-400.css";
 import "@fontsource/ibm-plex-sans/latin-600.css";
 import "./globals.css";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 export const metadata: Metadata = {
   title: "Nexovate CRM",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es" className="dark">
-      <body>{children}</body>
+      <body>{children}<GlobalLoading /></body>
     </html>
   );
 }

@@ -1,3 +1,4 @@
+import { WithLoading } from "../ui/loading-test-support";
 import { act, fireEvent, render as renderUi, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotificationProvider } from "@/components/ui/notifications";
@@ -11,7 +12,7 @@ import type { MoveResult } from "@/lib/clients/moves";
 
 const f = vi.hoisted(() => ({ refresh: vi.fn(), move: vi.fn() }));
 const order = ["Contactado", "Interesado", "Reunión agendada", "Cerrado", "Sin respuesta", "Respuesta negativa"];
-const render = (ui: ReactNode) => renderUi(ui, { wrapper: NotificationProvider });
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: ({ children }) => <NotificationProvider><WithLoading>{children}</WithLoading></NotificationProvider> });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: f.refresh }) }));
 vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: f.move, saveClient: vi.fn() }));
 describe("shared client views and approved board controls", () => {
@@ -113,7 +114,7 @@ describe("shared client views and approved board controls", () => {
     await waitFor(() => expect(f.move).toHaveBeenCalledOnce());
     expect(f.move.mock.calls[0][0]).toMatchObject({ clientId, version: 2, from: "Contactado", to: "Interesado" });
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
-    expect(screen.getByText("Guardando cambio de estado…")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Cargando" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeDisabled();
     act(() => {
@@ -123,7 +124,7 @@ describe("shared client views and approved board controls", () => {
     expect(screen.getByRole("region", { name: "Kanban de clientes" })).toBeInTheDocument();
     expect(window.location.search).toBe("");
     rerender(<ClientList result={{ ...result, rows: [] }} />);
-    expect(screen.getByText("Guardando cambio de estado…")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Cargando" })).toBeInTheDocument();
     expect(screen.queryByText("Estado actualizado")).not.toBeInTheDocument();
     await act(async () => resolve({ kind: "success", client: { ...confirmed, status: "Interesado", version: 3 } }));
     expect(screen.getByText("Estado actualizado")).toBeInTheDocument();

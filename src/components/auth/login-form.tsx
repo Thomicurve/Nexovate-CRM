@@ -2,11 +2,13 @@
 
 import type { LoginState } from "@/lib/auth/login";
 import { useActionState } from "react";
+import { usePendingLoading } from "@/components/ui/global-loading";
 
 export type LoginAction = (state: LoginState, form: FormData) => Promise<LoginState>;
 
 export function LoginForm({ action, expired = false }: { action: LoginAction; expired?: boolean }) {
   const [state, formAction, pending] = useActionState(action, { status: "idle" });
+  usePendingLoading(pending);
   return (
     <form action={formAction} className="login-form" aria-busy={pending}>
       <div className="field">
@@ -25,7 +27,6 @@ export function LoginForm({ action, expired = false }: { action: LoginAction; ex
       <button className="primary-button" disabled={pending} type="submit">
         {pending ? "Ingresando…" : "Ingresar"}
       </button>
-      {pending && <p className="secondary" role="status">Comprobando el acceso…</p>}
       {expired && !pending && state.status === "idle" &&
         <p className="secondary" role="status">Tu sesión finalizó. Ingresá para continuar.</p>}
     </form>

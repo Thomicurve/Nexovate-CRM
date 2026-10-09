@@ -1,4 +1,6 @@
-import { act, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { WithLoading } from "../ui/loading-test-support";
+import { act, render as renderUi, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientList } from "@/components/clients/client-list";
@@ -12,6 +14,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", desde: "2026-10-07", vista: "tabla" });
 if (!parsed.ok) throw new Error("valid fixture filters");
 const filters = parsed.filters;
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
+
 describe("client table and filter accessibility", () => {
   beforeEach(() => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
@@ -58,6 +62,7 @@ describe("client table and filter accessibility", () => {
     await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await new Promise((resolve) => setTimeout(resolve, 230));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Cargando" })).toBeNull());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const chosen = screen.getByRole("link", { name: "Nuevo cliente" });
     if (keepFocus) chosen.focus();
@@ -90,7 +95,7 @@ describe("client table and filter accessibility", () => {
     navigation.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
     await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Actualizando clientes");
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
     await act(async () => finish());
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");

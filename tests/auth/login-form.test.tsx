@@ -1,8 +1,12 @@
-import { act, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { WithLoading } from "../ui/loading-test-support";
+import { act, render as renderUi, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/auth/login-form";
 import type { LoginState } from "@/lib/auth/login";
+
+const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
 
 describe("approved accessible login states", () => {
   it("labels inputs, preserves password privacy and supports keyboard submission", async () => {
@@ -27,7 +31,7 @@ describe("approved accessible login states", () => {
     await user.type(screen.getByLabelText("Contraseña"), "synthetic");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
     expect(screen.getByRole("button", { name: "Ingresando…" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Comprobando el acceso…");
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
     expect(action).toHaveBeenCalledOnce();
     await act(async () => finish({ status: "error", message: "Reintentá" }));
   });

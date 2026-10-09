@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { usePathname } from "next/navigation";
 export function NavigationLinks() {
   const path = usePathname();

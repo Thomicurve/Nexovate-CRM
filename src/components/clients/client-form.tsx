@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { useRouter } from "next/navigation";
-import { useActionState, useLayoutEffect, useRef, useState } from "react";
+import { useActionState, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { isClient, safeReturnPath, STATUSES, type Client, type SaveState } from "@/lib/clients/model";
 import { useNotification } from "@/components/ui/notifications";
 import { utcToLocal } from "@/lib/clients/dates";
+import { usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./clients.module.css";
 
 export type ClientFormProps = { client?: Client; requestId: string; initialContact: string; returnTo: string;
@@ -22,6 +23,8 @@ export function ClientForm(props: Props) {
 
 function FormBody({ client, requestId, initialContact, returnTo, action, resume, embedded, closing, onSuccess, onCancel, onLockChange }: Props & { resume: (client: Client) => void }) {
   const router = useRouter(), notify = useNotification();
+  const [navigating, transition] = useTransition();
+  usePendingLoading(navigating);
   const firstField = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => { if (embedded) firstField.current?.focus(); }, [embedded]);
   const [state, submit, pending] = useActionState(async (previous: SaveState, form: FormData): Promise<SaveState> => {
@@ -32,7 +35,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume,
         if (!isClient(result.client)) return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos." };
         notify(client ? "Cliente actualizado" : "Cliente creado", result.client.name);
         if (onSuccess) onSuccess(result.client);
-        else router.replace(safeReturnPath(returnTo));
+        else transition(() => router.replace(safeReturnPath(returnTo)));
       }
       onLockChange?.(result.status === "success" || result.status === "error" && result.retry === true);
       return result;
@@ -43,6 +46,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume,
       return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos antes de salir." };
     }
   }, { status: "idle" } as SaveState);
+  usePendingLoading(pending);
   const disabled = pending || state.status === "success" || Boolean(closing);
   const [intent, setIntent] = useState(requestId);
   const [values, setValues] = useState({ name: client?.name ?? "", company: client?.company ?? "",
@@ -118,7 +122,6 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume,
             {state.errors?.notes && <p className={styles.error}>{state.errors.notes}</p>}</div>
         </div>
         {state.message && <p className={styles.error} role="alert">{state.message}</p>}
-        {pending && <p className={styles.hint} role="status">Guardando cliente…</p>}
         <div className={styles.actions}><button type="submit" disabled={disabled}>
           {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
         </button>{cancel}</div>

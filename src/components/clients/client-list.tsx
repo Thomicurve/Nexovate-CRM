@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, useTransition, type MouseEvent } from "react";
 import { CLIENT_TIME_ZONE, utcToLocal } from "@/lib/clients/dates";
@@ -10,6 +10,8 @@ import { saveClient } from "@/app/(crm)/clientes/actions";
 import styles from "./clients.module.css";
 import { ClientKanban } from "./client-kanban";
 import { ClientModal } from "./client-modal";
+import { usePendingLoading } from "@/components/ui/global-loading";
+import { useLoadingFormNavigation } from "@/components/ui/loading-navigation";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: CLIENT_TIME_ZONE,
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -23,6 +25,8 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const [view, setView] = useState(incoming.kind === "invalid" ? "kanban" : incoming.filters.view);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
   const [pending, startTransition] = useTransition();
+  usePendingLoading(pending || refreshing);
+  const navigateFilters = useLoadingFormNavigation();
   const [seenPending, setSeenPending] = useState(false);
   const refreshGuard = useRef(false);
   const modalOpener = useRef<HTMLElement | null>(null), currentView = useRef<HTMLAnchorElement | null>(null);
@@ -58,7 +62,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const empty = parseFilters({});
   if (!empty.ok) throw new Error("Invalid default filters");
   const applied = { ...(result.kind === "invalid" ? empty.filters : result.filters), view };
-  const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false), busy = pending;
   const [draft, setDraft] = useState(applied);
   const trigger = useRef<HTMLButtonElement>(null), nameInput = useRef<HTMLInputElement>(null);
   const wasOpen = useRef(false);
@@ -105,7 +109,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   if (open) return <section className={styles.filterPanel} aria-labelledby="filter-title"
     onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(); } }}>
     <h1 id="filter-title">Filtrar clientes</h1>
-    <form action="/clientes" method="get" onSubmit={() => setBusy(true)} aria-busy={busy}>
+    <form action="/clientes" method="get" onSubmit={navigateFilters} aria-busy={busy}>
       {viewField}
       {nameField}
       <fieldset className={styles.stateOptions}><legend>Estados</legend>
@@ -134,7 +138,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
       <div className={styles.actions}><button type="button" className={styles.refreshButton} disabled={locked || refreshing || pending} onClick={refresh}>
         {refreshing || pending ? "Actualizando…" : "Actualizar"}</button><Link prefetch={false} aria-disabled={locked} tabIndex={locked ? -1 : undefined}
         href={`/clientes/nuevo?returnTo=${encodeURIComponent(returnTo)}`} onClick={(event) => openModal(event)}>Nuevo cliente</Link></div></div>
-    <form className={styles.filterBar} action="/clientes" method="get" onSubmit={() => setBusy(true)} aria-busy={busy}>
+    <form className={styles.filterBar} action="/clientes" method="get" onSubmit={navigateFilters} aria-busy={busy}>
       {viewField}<fieldset className={styles.filterLock} disabled={locked || refreshing || pending}>
       <div className={styles.desktopFilter}>{nameField}</div>
       <div className={styles.statesTrigger}><span className={styles.desktopFilter}>Estados</span>
@@ -147,8 +151,6 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
         <Link href={clearPath} aria-disabled={locked} tabIndex={locked ? -1 : undefined} onClick={(event) => { if (locked) event.preventDefault(); }}>Limpiar</Link></div>
       </fieldset>
     </form>
-    {busy && <p role="status">Cargando clientes…</p>}
-    {(refreshing || pending) && <p role="status">Actualizando clientes…</p>}
     {refreshError && result.kind === "found" && <div className={styles.actions}>
       <p className={styles.error} role="alert">No pudimos actualizar los clientes. Se conserva la última lista.</p>
       <button type="button" disabled={locked || refreshing || pending} onClick={refresh}>Reintentar actualización</button></div>}

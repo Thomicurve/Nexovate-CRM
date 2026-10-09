@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavigationLinks } from "@/components/clients/navigation-links";
 import { requireMember } from "@/lib/auth/require-member";
 import { logout } from "@/app/login/actions";
+import { FormLoading } from "@/components/ui/global-loading";
 import { NotificationProvider } from "@/components/ui/notifications";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
         <p className="brand">Nexovate</p>
         <nav aria-label="Navegación principal">
           <NavigationLinks />
-          <form action={logout}><button className="nav-row" type="submit">Cerrar sesión</button></form>
+          <form action={logout}><FormLoading /><button className="nav-row" type="submit">Cerrar sesión</button></form>
         </nav>
       </aside>
       <main className="crm-content">{children}</main>

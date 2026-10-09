@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, pointerWithin, useDraggable, useDroppable,
   useSensor, useSensors, type DragEndEvent, type KeyboardCoordinateGetter } from "@dnd-kit/core";
 import { useNotification } from "@/components/ui/notifications";
@@ -11,6 +11,7 @@ import { beginMove, finishMove, retryMove, type BoardMove, type MoveResult } fro
 import { STATUSES, type Client, type ClientStatus } from "@/lib/clients/model";
 import { CLIENT_TIME_ZONE } from "@/lib/clients/dates";
 import { KANBAN_STATUSES, readColumnOrder, reorderColumn, saveColumnOrder } from "@/lib/clients/column-order";
+import { usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./clients.module.css";
 
 const colors = ["#85B6F5", "#B8AEEC", "#92CDB4", "#B8C4D5", "#E8A6AD", "#99C9DD"];
@@ -21,6 +22,8 @@ type EditCard = (client: Client, opener: HTMLElement) => void;
 export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[]; returnTo: string; onLock: (locked: boolean) => void; onEdit: EditCard }) {
   const router = useRouter(), notify = useNotification();
   const [board, setBoard] = useState<BoardMove>({ rows, intent: null, original: null, pending: false, result: null });
+  const [refreshPending, transition] = useTransition();
+  usePendingLoading(board.pending || refreshPending);
   const current = useRef(board), [seenRows, setSeenRows] = useState(rows);
   const container = useRef<HTMLElement>(null), focusAfter = useRef<string | null>(null);
   const [visible, setVisible] = useState<ClientStatus>("Contactado");
@@ -69,7 +72,7 @@ export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[
     catch { result = { kind: "error", retry: true, message: "No podemos confirmar el cambio. Reintentá el mismo movimiento." }; }
     apply(finishMove(current.current, result));
     if (result.kind === "success") notify("Estado actualizado", `${result.client.name} · ${result.client.status}`);
-    if (result.kind === "success" || result.kind === "conflict") router.refresh();
+    if (result.kind === "success" || result.kind === "conflict") transition(() => router.refresh());
   };
   const release = () => { gesture.current = false; setDragging(false); keyboardTarget.current = null; onLock(Boolean(current.current.intent)); };
   const reorder = (from: ClientStatus, to: ClientStatus) => {
@@ -91,7 +94,6 @@ export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[
       </select><p className={styles.hint}>Elegí cualquier estado para ver su columna.</p></div>
     <p className={styles.hint}>Los conteos corresponden a los clientes de esta página.</p>
     <p id="move-instructions" className={styles.srOnly}>Para cambiar el estado, presioná Espacio o Enter, usá las flechas izquierda y derecha y confirmá con Espacio o Enter. Escape cancela. También podés editar el cliente.</p>
-    {board.pending && <p role="status">Guardando cambio de estado…</p>}
     {board.result?.kind === "error" && <div className={styles.actions}><p role="alert" className={styles.error}>{board.result.message}</p>
       {board.result.retry && <button type="button" data-retry onClick={() => void submit(retryMove(current.current))}>Intentar de nuevo</button>}</div>}
     {board.result?.kind === "conflict" && <div className={styles.actions}>
