@@ -65,6 +65,13 @@ describe("shared client views and approved board controls", () => {
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
     expect(screen.getByText("Guardando cambio de estado…")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Actualizar" })).toBeDisabled();
+    act(() => {
+      window.history.replaceState(null, "", "/clientes?vista=tabla");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(screen.getByRole("region", { name: "Kanban de clientes" })).toBeInTheDocument();
+    expect(window.location.search).toBe("");
     rerender(<ClientList result={{ ...result, rows: [] }} />);
     expect(screen.getByText("Guardando cambio de estado…")).toBeInTheDocument();
     expect(screen.queryByText("Estado actualizado")).not.toBeInTheDocument();

@@ -1,5 +1,9 @@
 .dashboard { display: grid; gap: 24px; min-width: 0; }
 .dashboard h1 { font-size: 32px; }
+.heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.refreshButton { min-height: 44px; padding: 10px 16px; border: 1px solid #597697; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; font-weight: 600; }
+.refreshButton:disabled { opacity: 0.65; cursor: default; }
+.refreshError { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .controls { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
 .dates { display: flex; gap: 12px; }
 .dates label { display: grid; gap: 8px; font-size: 13px; min-width: 0; width: 190px; }

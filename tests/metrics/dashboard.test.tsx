@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "@/components/dashboard/dashboard";
@@ -14,6 +14,37 @@ function data(historical = 12, range = 3): MetricsData {
 }
 describe("dashboard totals, range and accessible periods", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("refreshes once and keeps confirmed metrics and range after a recoverable failure", async () => {
+    let finish!: () => void;
+    f.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const user = userEvent.setup(), result = data();
+    const { rerender } = render(<Dashboard result={result} params={{}} />);
+    await user.click(screen.getByRole("button", { name: "Actualizar" }));
+    await user.click(screen.getByRole("button", { name: /Actualizando/ }));
+    expect(f.refresh).toHaveBeenCalledOnce();
+    rerender(<Dashboard result={{ kind: "unavailable", query }} params={{}} />);
+    await act(async () => finish());
+    expect(screen.getAllByText("12 históricos")).toHaveLength(3);
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar las métricas");
+    expect(screen.getByLabelText("Desde")).toHaveValue(query.from);
+    expect(screen.getByRole("button", { name: "Día" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Reintentar actualización" }));
+    rerender(<Dashboard result={data(15, 4)} params={{}} />);
+    expect(screen.getAllByText("15 históricos")).toHaveLength(3);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(f.push).not.toHaveBeenCalled();
+  });
+  it("keeps metrics and unlocks retry when refresh completes without new server props", async () => {
+    let finish!: () => void;
+    f.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<Dashboard result={data()} params={{}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Actualizando métricas");
+    await act(async () => finish());
+    expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");
+    expect(screen.getAllByText("12 históricos")).toHaveLength(3);
+  });
   it("shows three distinct range/historical totals and every calendar period in semantic tables", async () => {
     render(<Dashboard result={data()} params={{}} />);
     for (const title of ["Contactados", "Reuniones agendadas", "Cerrados"]) {

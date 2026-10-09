@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import type { MetricsQuery, MetricsResult } from "@/lib/metrics/model";
 import { parseMetricsQuery, type MetricsSearchParams } from "@/lib/metrics/query";
 import { MetricChart, formatPeriod } from "./metric-chart";
@@ -10,7 +10,7 @@ import styles from "./dashboard.module.css";
 const titles = ["Contactados", "Reuniones agendadas", "Cerrados"];
 const groups = [["day", "Día"], ["month", "Mes"], ["year", "Año"]] as const;
 const number = new Intl.NumberFormat("es-AR");
-function Controls({ query, from, until }: { query: MetricsQuery; from: string; until: string }) {
+function Controls({ query, from, until, refreshing }: { query: MetricsQuery; from: string; until: string; refreshing: boolean }) {
   const router = useRouter();
   const [draftFrom, setFrom] = useState(from), [draftUntil, setUntil] = useState(until);
   const [error, setError] = useState("");
@@ -26,23 +26,47 @@ function Controls({ query, from, until }: { query: MetricsQuery; from: string; u
     <form className={styles.controls} noValidate onSubmit={(event) => { event.preventDefault(); apply({ ...query, from: draftFrom, until: draftUntil }); }}>
       <div className={styles.dates}>
         <label>Desde<input type="date" name="desde" min="1900-01-01" max="9999-12-31" required value={draftFrom}
-          aria-invalid={!!error} onChange={(event) => setFrom(event.target.value)} disabled={pending} /></label>
+          aria-invalid={!!error} onChange={(event) => setFrom(event.target.value)} disabled={pending || refreshing} /></label>
         <label>Hasta<input type="date" name="hasta" min="1900-01-01" max="9999-12-31" required value={draftUntil}
-          aria-invalid={!!error} onChange={(event) => setUntil(event.target.value)} disabled={pending} /></label>
+          aria-invalid={!!error} onChange={(event) => setUntil(event.target.value)} disabled={pending || refreshing} /></label>
       </div>
       <fieldset className={styles.group}><legend>Agrupar por</legend><div>
         {groups.map(([grouping, label]) => <button key={grouping} type="button" aria-pressed={query.grouping === grouping}
-          disabled={pending} onClick={() => apply({ ...query, grouping })}>{label}</button>)}
+          disabled={pending || refreshing} onClick={() => apply({ ...query, grouping })}>{label}</button>)}
       </div></fieldset>
-      <button className={styles.primary} type="submit" disabled={pending}>Aplicar rango</button>
+      <button className={styles.primary} type="submit" disabled={pending || refreshing}>Aplicar rango</button>
     </form>
     {error && <p className={styles.error} role="alert">{error}</p>}
     {pending && <p role="status" className={styles.hint}>Actualizando métricas…</p>}
   </div>;
 }
 
-export function Dashboard({ result, params }: { result: MetricsResult; params: MetricsSearchParams }) {
+export function Dashboard({ result: incoming, params }: { result: MetricsResult; params: MetricsSearchParams }) {
   const router = useRouter();
+  const [result, setResult] = useState(incoming), [seenIncoming, setSeenIncoming] = useState(incoming);
+  const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [seenPending, setSeenPending] = useState(false);
+  const refreshGuard = useRef(false);
+  useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
+  if (incoming !== seenIncoming) {
+    setSeenIncoming(incoming);
+    const failed = refreshing && incoming.kind === "unavailable";
+    if (!failed || (result.kind !== "ready" && result.kind !== "too_many_buckets")) setResult(incoming);
+    setRefreshError(failed); setRefreshing(false);
+  }
+  if (pending !== seenPending) {
+    setSeenPending(pending);
+    if (!pending && refreshing && incoming === seenIncoming) {
+      setRefreshing(false); setRefreshError(true);
+    }
+  }
+  function refresh() {
+    if (refreshGuard.current || pending) return;
+    refreshGuard.current = true;
+    setRefreshing(true); setRefreshError(false);
+    startTransition(() => router.refresh());
+  }
   const firstDate = useRef<HTMLDivElement>(null);
   const defaults = parseMetricsQuery({});
   if (!defaults.ok) return <p role="alert">No pudimos preparar el rango de fechas.</p>;
@@ -53,15 +77,20 @@ export function Dashboard({ result, params }: { result: MetricsResult; params: M
   const empty = hasTotals && result.metrics.every((metric) => metric.historicalTotal === 0);
   const emptyRange = result.kind === "ready" && !empty && result.metrics.every((metric) => metric.rangeTotal === 0);
   const changeRange = () => firstDate.current?.querySelector("input")?.focus();
-  return <div className={styles.dashboard}>
-    <h1>Dashboard</h1>
-    <div ref={firstDate}><Controls key={`${from}/${until}/${query.grouping}`} query={query} from={from} until={until} /></div>
+  return <div className={styles.dashboard} aria-busy={refreshing || pending}>
+    <div className={styles.heading}><h1>Dashboard</h1><button type="button" className={styles.refreshButton} disabled={refreshing || pending} onClick={refresh}>
+      {refreshing || pending ? "Actualizando…" : "Actualizar"}</button></div>
+    <div ref={firstDate}><Controls key={`${from}/${until}/${query.grouping}`} query={query} from={from} until={until} refreshing={refreshing || pending} /></div>
+    {(refreshing || pending) && <p role="status" className={styles.hint}>Actualizando métricas…</p>}
+    {refreshError && hasTotals && <div className={styles.refreshError}>
+      <p className={styles.error} role="alert">No pudimos actualizar las métricas. Se conservan los últimos datos.</p>
+      <button type="button" className={styles.refreshButton} disabled={refreshing || pending} onClick={refresh}>Reintentar actualización</button></div>}
     <p className={styles.hint} aria-live="polite">{formatPeriod(query.from, "day")} a {formatPeriod(query.until, "day")} ·
       {` Agrupación: ${groups.find(([key]) => key === query.grouping)![1]}. Horario de Buenos Aires.`}</p>
     {result.kind === "invalid" && <p className={styles.error} role="alert">{result.message}</p>}
     {result.kind === "unavailable" && <div className={styles.state}>
       <p className={styles.error} role="alert">No pudimos cargar las métricas. Reintentá en unos instantes.</p>
-      <button type="button" onClick={() => router.refresh()}>Reintentar</button>
+      <button type="button" disabled={refreshing || pending} onClick={refresh}>Reintentar</button>
     </div>}
     {result.kind === "too_many_buckets" && <p className={styles.notice} role="status">
       El rango contiene {number.format(result.bucketCount)} períodos. {result.grouping === "year" ? "Reducí el rango para ver la evolución." :
