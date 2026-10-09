@@ -25,7 +25,7 @@ Playwright sin capturas, vídeos ni trazas, ya desactivados en playwright.config
 
 ### TASK-001 — Alternar vistas y actualizar datos sin perder contexto
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-001, AC-002 y parte de AC-007.
+**Estado:** DONE · **Criterios:** AC-001, AC-002 y parte de AC-007.
 
 Separar la vista del ciclo de consulta, conservar navegación/URL y agregar Actualizar en Clientes y Dashboard con progreso y errores recuperables.
 
@@ -34,20 +34,20 @@ Separar la vista del ciclo de consulta, conservar navegación/URL y agregar Actu
 - **Termina cuando:** cambiar vista no provoca una consulta adicional; filtros/página/URL y Atrás/Adelante funcionan; ambos refresh preservan parámetros y muestran progreso/error. AC cubiertos con pruebas observadas, revisión y commit verificado.
 - **Checks:** Vitest de listado/kanban/dashboard; Playwright local de cambios de vista, historial y conteo de solicitudes; comprobaciones comunes.
 - **WU-001:** comportamiento y pruebas; forecast actualizado 470–550 líneas/11–12 archivos, confianza media. Incluye harness local con componentes reales, datos simulados y navegador, sin atribuirle prueba RSC/Supabase live. El test live queda preparado pero no ejecutable hasta disponer de los correos/project ref de prueba; no se modifica configuración privada. Se conserva una unidad coherente y el mismo commit propuesto feat: reuse client data across views and add refresh controls.
-- **Resultado:** candidato WU-001 detenido, 12 archivos +446/-27 (473 líneas), digest paths+NUL+bytes+NUL 7da8e7cc44c1bd9323c38c4e6fa801cb5fd6aed562d19f0c6ddc0d425b7b4b0e. RED observado (vista/refresh, transición sin snapshot, lock/historial); GREEN Clientes16/16 y Dashboard14/14, Playwright local PASS, lint/typecheck/build aislados/diff-check PASS. Fresh Verification-only COMPLETED/STOPPED: Vitest30/3 y browserlocal1/38,7s PASS, digest inicial/final igual, puerto3111 cerrado. next-env/tsconfig sin diff de contenido. Falta Reviewer y commit. Browser live se detuvo antes de login por configuración de cuentas ausente; no se acredita RSC/Supabase live.
+- **Resultado:** WU-001 aceptada y commit local a46b9f5712a8e9cc784ba08601824cbe13d7a7bb, padre bdb31c9061d2576981b41f64dbd6e824ba33064c; 12 archivos +446/-27 y dos documentos, blobs verificados/índice vacío. Digest candidato 7da8e7cc44c1bd9323c38c4e6fa801cb5fd6aed562d19f0c6ddc0d425b7b4b0e. RED observado (vista/refresh, transición sin snapshot, lock/historial); GREEN Clientes16/16 y Dashboard14/14, Playwright local/lint/typecheck/build aislados/diff-check PASS. Fresh Verification-only COMPLETED/STOPPED: Vitest30/3 y browserlocal1/38,7s PASS, digest inicial/final igual. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos; next-env/tsconfig sin diff de contenido y excluidos. Browser live se detuvo antes de login por configuración de cuentas ausente; no se acredita RSC/Supabase live.
 
 ### TASK-002 — Alta y edición en modal accesible y animado
 
-**Estado:** TODO · **Criterios:** AC-003, AC-004 y parte de AC-007.
+**Estado:** IN_PROGRESS · **Criterios:** AC-003, AC-004 y parte de AC-007.
 
 Reutilizar el formulario para apertura local, cierre y guardado sobre el listado; adaptar los enlaces existentes para presentar el mismo modal y preservar el contexto de retorno.
 
 - **Dependencias:** TASK-001 aceptada y diseño modal aprobado/verificado.
-- **Archivos permitidos:** src/components/clients/client-form.tsx, client-list.tsx y clients.module.css; nuevo client-modal.tsx en el mismo directorio; src/app/(crm)/clientes/nuevo/page.tsx y [id]/editar/page.tsx; tests/clients/form.test.tsx, list.test.tsx y nuevo modal.test.tsx; tests/e2e/clients-form.spec.ts, crm-flow.spec.ts y prueba acotada del modal. Actions sólo si una adaptación demostrada es necesaria, conservando contrato y guards, con sus pruebas tests/clients/boundaries.test.ts.
+- **Archivos permitidos:** src/components/clients/client-form.tsx, client-list.tsx y clients.module.css; nuevo client-modal.tsx en el mismo directorio; src/app/(crm)/clientes/nuevo/page.tsx y [id]/editar/page.tsx; tests/clients/form.test.tsx, list.test.tsx y nuevo modal.test.tsx; tests/e2e/clients-form.spec.ts, crm-flow.spec.ts y prueba acotada del modal. tests/e2e/client-view-refresh-local.spec.ts sólo adaptación del stub saveClient que rechaza escrituras por el nuevo import de ClientList y timeout del caso 60→90s por arranque Vite frío, sin debilitar comprobaciones ni ampliar esperas de producto. Actions sólo si una adaptación demostrada es necesaria, conservando contrato y guards, con sus pruebas tests/clients/boundaries.test.ts.
 - **Termina cuando:** nuevo/editar usan el modal; guardados, validación, conflicto y reintento funcionan sin perder información; cierre y retorno, teclado/móvil/movimiento reducido comprobados. Las rutas directas existentes siguen siendo utilizables. Revisión y commit aceptados.
 - **Checks:** Vitest formulario/modal/listado/boundaries; Playwright local de apertura/cierre/foco, móvil, enlaces directos y guardados simulados; comprobaciones comunes, build y regresión afectada.
-- **WU-002:** modal, adaptación del formulario/rutas y pruebas; 450–800 líneas/8–12 archivos, confianza media. Unidad cohesionada aun si supera el umbral orientativo de 400. Commit propuesto feat: create and edit clients in an animated modal.
-- **Resultado:** pendiente.
+- **WU-002:** modal, adaptación del formulario/rutas y pruebas; forecast actualizado 450–800 líneas/15 archivos, confianza media. La diferencia de archivos corresponde al harness local y adaptación de regresión ya autorizados; no cambia producto, arquitectura ni entrega. Unidad cohesionada aun si supera el umbral orientativo de 400. Commit propuesto feat: create and edit clients in an animated modal.
+- **Resultado:** candidato detenido, 15 archivos +443/-39 (482 líneas), digest raw paths+NUL+bytes+NUL cd04923eac971f33fb2bdc5a1aa0522ebd4a1fc11afb11cf53355776e5311855. RED/GREEN apertura/callback, guard de submit/cierre, foco tras conflicto y eliminación del disparador por filtro. Unit38/38 final y contratos/moves vigentes; browser modal3/3 focalizados y regresión vistas1/1, lint/typecheck/build aislados/diff-check PASS. Verification-only independiente COMPLETED/STOPPED: Vitest6/91 en 43,51s y Chrome modal3/3 en 57,3s PASS; repeticiones idénticas escaladas tras ENOENT de caché/denegación de localhost anteriores a interacción. Digest inicial/final igual y puerto3112 cerrado. No cambios a actions/backend. next-env/tsconfig preservados byte por byte. Falta Reviewer y commit. Browser local con componentes reales/HTTP simulado; no prueba Next RSC/Supabase live.
 
 ### TASK-003 — Tarjetas directas y columnas reordenables
 
@@ -64,6 +64,6 @@ Abrir el modal desde la tarjeta completa, retirar acciones actuales y separar ap
 
 ## Próximo paso
 
-- **Tarea activa:** TASK-001, IN_PROGRESS, rama feature/crm-interaction en baseline bdb31c9061d2576981b41f64dbd6e824ba33064c.
+- **Tarea activa:** TASK-002, IN_PROGRESS, rama feature/crm-interaction en baseline a46b9f5712a8e9cc784ba08601824cbe13d7a7bb.
 - **Continuación:** COVERED_BY_CONTINUOUS_PLAN, PLAN-1.
-- **Acción siguiente:** Reviewer WU-001 APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos; commit local del candidato exacto y documentos aprobados, luego TASK-002 cubierta por CONTINUOUS PLAN-1. Consultar sólo ante bloqueos, cambios materiales o intervención del usuario.
+- **Acción siguiente:** entregar commit local WU-002. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos, sobre digest cd04923eac971f33fb2bdc5a1aa0522ebd4a1fc11afb11cf53355776e5311855 y comprobaciones independientes aceptadas. TASK-002 cubierta por CONTINUOUS PLAN-1; consultar sólo ante bloqueos, cambios materiales o intervención del usuario.

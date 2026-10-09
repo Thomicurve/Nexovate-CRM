@@ -16,7 +16,7 @@ test.beforeAll(async () => {
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
         if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link(props){return createElement('a',props)}";
-        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Business writes disabled in local harness')}";
+        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Business writes disabled in local harness')} export const saveClient=moveClient;";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
         if (!["/clientes", "/dashboard"].includes(new URL(request.url!, "http://local.invalid").pathname)) return next();
@@ -29,7 +29,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await server?.close(); });
 
 test("local components preserve filtered page through view/history/reload and both refresh failures", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000); // Cold local Vite bundling; product assertions keep their existing limits.
   const reads: string[] = [], writes: string[] = [];
   let fail = false, finish: (() => void) | undefined;
   await page.route("**/*", async (route) => {

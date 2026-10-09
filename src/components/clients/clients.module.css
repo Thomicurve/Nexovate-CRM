@@ -43,6 +43,24 @@
 .stateOptions input { accent-color: var(--action); width: 16px; height: 16px; }
 .filterActions { flex-direction: column; align-items: start; }
 .filterActions .secondaryButton { background: transparent; border: 1px solid #597697; color: var(--foreground); }
+.actions .secondaryButton { background: transparent; border: 1px solid #597697; color: var(--foreground); }
+.modal { width: min(800px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 1px solid #597697; border-radius: 10px; color: var(--foreground); background: var(--surface); overflow: hidden; }
+.modal[open] { display: flex; flex-direction: column; animation: openModal 200ms ease-out; }
+.modal::backdrop { background: #050c18b3; animation: fadeBackdrop 200ms ease-out; }
+.modal[data-closing] { animation: closeModal 200ms ease-in forwards; pointer-events: none; }
+.modal[data-closing]::backdrop { animation: fadeBackdrop 200ms ease-in reverse forwards; }
+.modalHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 28px; border-bottom: 1px solid #243750; flex-shrink: 0; }
+.modalHeader h1 { font-size: 26px; }
+.modalHeader button { width: 44px; height: 44px; border: 1px solid #597697; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; font-size: 24px; flex-shrink: 0; }
+.modalHeader button:disabled { opacity: 0.65; }
+.modalForm { min-height: 0; overflow-y: auto; padding: 20px 28px 0; display: grid; gap: 12px; }
+.modalForm form { display: grid; gap: 20px; }
+.modalForm .actions { position: sticky; bottom: 0; background: var(--surface); padding: 16px 0; border-top: 1px solid #243750; }
+@keyframes openModal { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes closeModal { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.98); } }
+@keyframes fadeBackdrop { from { background: #050c1800; } to { background: #050c18b3; } }
+@media (prefers-reduced-motion: reduce) { .modal[open], .modal[data-closing], .modal::backdrop, .modal[data-closing]::backdrop { animation: none; } }
+@media (max-width: 600px) { .modalHeader { padding: 12px 16px; } .modalHeader h1 { font-size: 22px; } .modalForm { padding: 16px 16px 0; } }
 .tableSurface { width: 100%; border: 1px solid #243750; border-radius: 10px; background: var(--surface); }
 .table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
 .table th, .table td { padding: 16px; overflow-wrap: anywhere; }

@@ -1,10 +1,11 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientList } from "@/components/clients/client-list";
+import { saveClient } from "@/app/(crm)/clientes/actions";
 import { parseFilters } from "@/lib/clients/filters";
 import { confirmed } from "./fixture";
-vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn(), saveClient: vi.fn() }));
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
@@ -12,6 +13,28 @@ const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", desde:
 if (!parsed.ok) throw new Error("valid fixture filters");
 const filters = parsed.filters;
 describe("client table and filter accessibility", () => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
+  });
+  it("opens create and edit locally with full row data and returns to the same opener", async () => {
+    const user = userEvent.setup();
+    render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, notes: "Notas completas", email: "persona@example.com" }], count: 1 }} />);
+    const opener = screen.getByRole("link", { name: "Editar Confirmado" });
+    await user.click(opener);
+    expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Notas")).toHaveValue("Notas completas");
+    expect(screen.getByLabelText("Email")).toHaveValue("persona@example.com");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await screen.findByRole("link", { name: "Editar Confirmado" });
+    await new Promise((resolve) => setTimeout(resolve, 230));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    await user.click(screen.getByRole("link", { name: "Nuevo cliente" }));
+    expect(screen.getByRole("dialog", { name: "Nuevo cliente" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre *")).toHaveValue("");
+    expect(screen.queryByLabelText("Estado")).not.toBeInTheDocument();
+  });
   it("switches presentation locally and restores browser history without refreshing data or losing drafts", async () => {
     const user = userEvent.setup();
     const paged = { ...filters, page: 2 };
@@ -26,6 +49,20 @@ describe("client table and filter accessibility", () => {
     expect(screen.getByRole("table", { name: "Clientes" })).toHaveTextContent("Confirmado");
     expect(screen.getByText("Página 2 · 101 clientes")).toBeVisible();
     expect(navigation.refresh).not.toHaveBeenCalled();
+  });
+  it.each([false, true])("recovers focus after a saved row disappears, preserving a later user focus (%s)", async (keepFocus) => {
+    const user = userEvent.setup();
+    const result = { kind: "found" as const, filters, rows: [confirmed], count: 1 };
+    vi.mocked(saveClient).mockResolvedValueOnce({ status: "success", client: { ...confirmed, name: "Fuera del filtro" } });
+    const { rerender } = render(<ClientList result={result} />);
+    await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await new Promise((resolve) => setTimeout(resolve, 230));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const chosen = screen.getByRole("link", { name: "Nuevo cliente" });
+    if (keepFocus) chosen.focus();
+    rerender(<ClientList result={{ ...result, rows: [], count: 0 }} />);
+    expect(keepFocus ? chosen : screen.getByRole("link", { name: "Tabla" })).toHaveFocus();
   });
   it("refreshes once, retains the last page on failure and supports recovery with the same filters", async () => {
     navigation.refresh.mockClear();

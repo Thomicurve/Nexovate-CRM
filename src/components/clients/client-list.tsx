@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
-import { CLIENT_TIME_ZONE } from "@/lib/clients/dates";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type MouseEvent } from "react";
+import { CLIENT_TIME_ZONE, utcToLocal } from "@/lib/clients/dates";
 import { listPath, PAGE_SIZE, parseFilters, type ListResult } from "@/lib/clients/filters";
-import { STATUSES, type ClientStatus } from "@/lib/clients/model";
+import { STATUSES, type Client, type ClientStatus } from "@/lib/clients/model";
+import { saveClient } from "@/app/(crm)/clientes/actions";
 import styles from "./clients.module.css";
 import { ClientKanban } from "./client-kanban";
+import { ClientModal } from "./client-modal";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: CLIENT_TIME_ZONE,
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -16,13 +18,22 @@ const displayDate = (value: string) => dateFormatter.format(new Date(value)).rep
 export function ClientList({ result: incoming }: { result: ListResult }) {
   const router = useRouter();
   const [locked, setLocked] = useState(false), [result, setResult] = useState(incoming);
+  const [modal, setModal] = useState<{ client?: Client; requestId: string; initialContact: string } | null>(null);
   const [seenIncoming, setSeenIncoming] = useState(incoming);
   const [view, setView] = useState(incoming.kind === "invalid" ? "kanban" : incoming.filters.view);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
   const [pending, startTransition] = useTransition();
   const [seenPending, setSeenPending] = useState(false);
   const refreshGuard = useRef(false);
+  const modalOpener = useRef<HTMLAnchorElement | null>(null), currentView = useRef<HTMLAnchorElement | null>(null);
+  const savedFocus = useRef<{ opener: HTMLAnchorElement | null; snapshot: ListResult } | null>(null);
   useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
+  useEffect(() => {
+    const saved = savedFocus.current;
+    if (!saved || modal || pending || result === saved.snapshot) return;
+    if (!saved.opener?.isConnected && document.activeElement === document.body) currentView.current?.focus();
+    savedFocus.current = null;
+  }, [result, modal, pending]);
   if (incoming !== seenIncoming && !locked) {
     setSeenIncoming(incoming);
     const failed = refreshing && incoming.kind === "unavailable";
@@ -61,12 +72,19 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const returnTo = listPath(applied);
   useEffect(() => {
     const restoreView = () => {
-      if (locked) { window.history.replaceState(null, "", returnTo); return; }
+      if (locked || modal) { window.history.replaceState(null, "", returnTo); return; }
       setView(new URLSearchParams(window.location.search).get("vista") === "tabla" ? "tabla" : "kanban");
     };
     window.addEventListener("popstate", restoreView);
     return () => window.removeEventListener("popstate", restoreView);
-  }, [locked, returnTo]);
+  }, [locked, modal, returnTo]);
+  function openModal(event: MouseEvent<HTMLAnchorElement>, client?: Client) {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    if (locked || refreshing || pending || modal) return;
+    modalOpener.current = event.currentTarget;
+    setModal({ client, requestId: crypto.randomUUID(), initialContact: client ? "" : utcToLocal(new Date().toISOString()) });
+  }
   const clearPath = listPath({ ...applied, name: "", statuses: [], from: "", until: "", page: 1 });
   const viewField = <input type="hidden" name="vista" value={applied.view} />;
   const dateFields = (panel: boolean) => <div className={panel ? styles.filterDates : styles.barDates}>
@@ -102,7 +120,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   return <section className={styles.destination} aria-busy={refreshing || pending}>
     <h1>Clientes</h1><div className={styles.viewBar} onClick={(event) => { if (locked) event.preventDefault(); }}>
       <nav className={styles.viewSwitch} aria-label="Vista de clientes">{[["kanban", "Kanban"], ["tabla", "Tabla"]].map(([view, label]) =>
-        <a key={view} href={listPath({ ...applied, view: view as "kanban" | "tabla" })} aria-current={applied.view === view ? "page" : undefined}
+        <a key={view} ref={applied.view === view ? currentView : undefined} href={listPath({ ...applied, view: view as "kanban" | "tabla" })} aria-current={applied.view === view ? "page" : undefined}
           aria-disabled={locked || refreshing} tabIndex={locked || refreshing ? -1 : undefined} onClick={(event) => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
             event.preventDefault();
@@ -111,8 +129,8 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
             setView(view as "kanban" | "tabla");
           }}>{label}</a>)}</nav>
       <div className={styles.actions}><button type="button" className={styles.refreshButton} disabled={locked || refreshing || pending} onClick={refresh}>
-        {refreshing || pending ? "Actualizando…" : "Actualizar"}</button><Link aria-disabled={locked} tabIndex={locked ? -1 : undefined}
-        href={`/clientes/nuevo?returnTo=${encodeURIComponent(returnTo)}`}>Nuevo cliente</Link></div></div>
+        {refreshing || pending ? "Actualizando…" : "Actualizar"}</button><Link prefetch={false} aria-disabled={locked} tabIndex={locked ? -1 : undefined}
+        href={`/clientes/nuevo?returnTo=${encodeURIComponent(returnTo)}`} onClick={(event) => openModal(event)}>Nuevo cliente</Link></div></div>
     <form className={styles.filterBar} action="/clientes" method="get" onSubmit={() => setBusy(true)} aria-busy={busy}>
       {viewField}<fieldset className={styles.filterLock} disabled={locked || refreshing || pending}>
       <div className={styles.desktopFilter}>{nameField}</div>
@@ -147,7 +165,8 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
           <span className={styles.mobileContact}>Contacto: {displayDate(row.contact_at)}</span></td>
         <td className={styles.optionalColumn}>{row.rubro || "Sin informar"}</td><td><span className={styles.status}>{row.status}</span></td>
         <td className={styles.optionalColumn}>{displayDate(row.contact_at)}</td><td className={styles.optionalColumn}>{row.meeting_at ? displayDate(row.meeting_at) : "Sin cita"}</td>
-        <td><Link className={styles.editLink} aria-label={`Editar ${row.name}`} href={`/clientes/${row.id}/editar?returnTo=${encodeURIComponent(returnTo)}`}>Editar</Link></td>
+        <td><Link prefetch={false} className={styles.editLink} aria-label={`Editar ${row.name}`} href={`/clientes/${row.id}/editar?returnTo=${encodeURIComponent(returnTo)}`}
+          onClick={(event) => openModal(event, row)}>Editar</Link></td>
       </tr>)}</tbody></table></div> : <div className={styles.listState}>
         <p>{result.count > 0 ? "Esta página ya no tiene clientes." : active ? "No hay clientes que coincidan con los filtros." : "Todavía no hay clientes."}</p>
         <p className={styles.hint}>{active ? "Probá cambiar o limpiar los filtros." : "Agregá el primer cliente para comenzar el seguimiento."}</p></div>)}
@@ -158,5 +177,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
       <span>Página {applied.page} · {result.count} clientes</span>
       {applied.page * PAGE_SIZE < result.count && <Link aria-disabled={locked} tabIndex={locked ? -1 : undefined} href={listPath(applied, applied.page + 1)}>Siguiente</Link>}
     </nav>}
+    {modal && <ClientModal {...modal} action={saveClient} returnTo={returnTo} onClose={() => setModal(null)}
+      onSaved={() => { savedFocus.current = { opener: modalOpener.current, snapshot: result }; setModal(null); startTransition(() => router.refresh()); }} />}
   </section>;
 }
