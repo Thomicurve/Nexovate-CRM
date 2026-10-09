@@ -6,7 +6,7 @@
 ## Forma de trabajo
 
 - **Modo:** CONTINUOUS. Decisión del usuario: «Listo plan aprobado, podes hacer las tareas de manera continua sin consultarme. Si surge algo que necesite una respuesta de mi parte podes notificarme» (2026-10-08).
-- **Aprobación de PLAN-1/SPEC-1:** APPROVE_CURRENT_PLAN; respuesta al checkpoint conjunto PLAN-1/SPEC-1/DESIGN-4. Autoriza las tres tareas secuenciales, revisión y commits locales. Verificación del candidato de diseño en curso antes de implementación.
+- **Aprobación de PLAN-1/SPEC-1:** APPROVE_CURRENT_PLAN; respuesta al checkpoint conjunto PLAN-1/SPEC-1/DESIGN-4. Autoriza las tres tareas secuenciales, revisión y commits locales. Candidato de diseño verificado antes de implementación.
 - **Primera tarea propuesta:** TASK-001.
 - **Diseño:** DESIGN-4 aprobado en el checkpoint conjunto y verificado por Designer DESIGN_APPROVED/STOPPED mediante lectura textual de once frames actuales, todos placeholder:false. Kanban escritorio/móvil TGdJv/eGWuA; tabla G3QI5/Q6LoOH; dashboard ZcMoq/G6DZxo; alta modal kpzgD/a2tmDP; edición modal MPpHS/qyhdR; estados gfpz3. Controles/formularios/estados y contratos permanecen. Referencias históricas conservadas. execute/Get informa schema y:0 frente a bounds y:50 (y:1 frente a y:51) y clipping en hijos flex; no se afirma ausencia de recortes ni comprobación funcional de implementación. Motion/foco/gestos son especificación editable, que debe comprobarse en la app.
 - **TDD:** ON para comportamiento, según convención explícita vigente del proyecto. RED observado antes de implementación nueva; Vitest/Testing Library y Playwright para pruebas relevantes.
@@ -53,7 +53,7 @@ Reutilizar el formulario para apertura local, cierre y guardado sobre el listado
 
 ### TASK-003 — Tarjetas directas y columnas reordenables
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-005, AC-006 y cierre de AC-007.
+**Estado:** DONE · **Criterios:** AC-005, AC-006 y cierre de AC-007.
 
 Abrir el modal desde la tarjeta completa, retirar acciones actuales y separar apertura de arrastre. Agregar orden de columnas persistido localmente y alternativas por teclado/móvil.
 
@@ -62,10 +62,10 @@ Abrir el modal desde la tarjeta completa, retirar acciones actuales y separar ap
 - **Termina cuando:** clic y teclado abren detalle editable, los botones anteriores no aparecen y el drag nunca abre el modal; reordenar/persistir/restaurar funciona incluso ante almacenamiento inválido; orden personalizado rige teclado/móvil; movimientos/reintentos/conflictos y notificaciones conservados. Criterios integrados, revisión y commit aceptados.
 - **Checks:** Vitest kanban/orden/moves/form/list; Playwright local de clic vs drag, cancelación, teclado/móvil y persistencia; comprobaciones comunes, build y suite de regresión final. Cierre reutiliza evidencias aceptadas y revisa sólo integración no cubierta.
 - **WU-003:** tarjetas, orden y pruebas; forecast actualizado 550–800 líneas/9–11 archivos, confianza media. La separación de gestos, almacenamiento adverso y controles móvil/teclado requiere prueba local propia; mismo producto, arquitectura, criterios y entrega, sin dependencias nuevas. Se conserva la unidad coherente dentro del forecast global aprobado. Commit propuesto feat: reorder kanban columns and open client cards directly.
-- **Resultado:** candidato detenido, 10 archivos +395/-71 (466 líneas), digest raw paths+NUL+bytes+NUL 028277fef89b3240e544a61585b0b29404531c4761e2a812c9139418f284f11c. Prueba conductual final14/14 en 9,40s, lint/typecheck aislado/diff-check PASS; next-env/tsconfig restaurados byte por byte y ningún proceso propio activo. Chrome local caso de tarjeta1/1 PASS (31,677s, ejecución59,052s): apertura, selección, modifiers, arrastre/cancelación, lock incierto y reintento, antes de ajustes finales de lint a lectura diferida/ref estable; los bytes finales tienen unit/lint/types. Casos de columnas/móvil/storage preparados sin ejecutar; cierre acepta la excepción humana expresa arriba, sin nueva batería completa ni build duplicado. No cambios a actions/backend/SQL/auth/dependencias. Falta revisión y commit locales.
+- **Resultado:** WU-003 aceptada y commit 38d504d6a5614eba68c5fdb049510ce948b91fd8, padre fd810bda3b0f051d0f8a46edc26dfe24348da3f9; paths/11 blobs/índice vacío verificados. Candidato 10 archivos +395/-71 (466 líneas), digest raw paths+NUL+bytes+NUL 028277fef89b3240e544a61585b0b29404531c4761e2a812c9139418f284f11c. Prueba conductual final14/14 en 9,40s, lint/typecheck aislado/diff-check PASS; next-env/tsconfig restaurados byte por byte y ningún proceso propio activo. Chrome local caso de tarjeta1/1 PASS (31,677s, ejecución59,052s): apertura, selección, modifiers, arrastre/cancelación, lock incierto y reintento, antes de ajustes finales de lint a lectura diferida/ref estable; los bytes finales tienen unit/lint/types. Casos de columnas/móvil/storage preparados sin ejecutar; cierre acepta la excepción humana expresa arriba, sin nueva batería completa ni build duplicado. No cambios a actions/backend/SQL/auth/dependencias. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos, incluido cierre integrado reutilizando recibos WU-001/WU-002.
 
 ## Próximo paso
 
-- **Tarea activa:** TASK-003, IN_PROGRESS, rama feature/crm-interaction en baseline fd810bda3b0f051d0f8a46edc26dfe24348da3f9.
+- **Estado final:** DONE. TASK-001, TASK-002 y TASK-003 aceptadas y entregadas en rama feature/crm-interaction; último commit de producto 38d504d6a5614eba68c5fdb049510ce948b91fd8.
 - **Continuación:** COVERED_BY_CONTINUOUS_PLAN, PLAN-1.
-- **Acción siguiente:** entregar commit local WU-003. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos, sobre digest 028277fef89b3240e544a61585b0b29404531c4761e2a812c9139418f284f11c y evidencia final aceptada conforme excepción humana. Cierre integrado AC-001 a AC-007 aprobado reutilizando WU-001/WU-002. No hay más tareas ni publicación autorizada.
+- **Cierre:** AC-001 a AC-007 aceptados, sin tareas pendientes. Cambios guardados en commits locales; no se ejecutaron operaciones de publicación. Memoria externa suspendida por el hook de runtime sin identidad registrada; estos documentos y los commits conservan la continuidad suficiente.
