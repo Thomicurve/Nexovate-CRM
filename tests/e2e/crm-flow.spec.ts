@@ -76,7 +76,7 @@ for (const accountIndex of [0, 1]) {
         }
         await main.getByLabel("Nombre *", { exact: true }).fill("Borrador sin guardar");
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        await activate(main.getByRole("link", { name: "Cancelar", exact: true }));
+        await activate(main.getByRole("button", { name: "Cancelar", exact: true }));
         await expect(page).toHaveURL(/\/clientes\?/);
         expect([...new URL(page.url()).searchParams].filter(([, value]) => value).sort()).toEqual(returnParams);
         await activate(main.getByRole("button", { name: "Filtros de clientes" }));

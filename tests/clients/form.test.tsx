@@ -13,6 +13,17 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.repl
 const render = (ui: ReactNode) => renderUi(ui, { wrapper: NotificationProvider });
 describe("approved client form interaction", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("delivers a confirmed save through a modal callback without route navigation", async () => {
+    const onSuccess = vi.fn(), onLockChange = vi.fn();
+    render(<ClientForm {...props} action={vi.fn().mockResolvedValue({ status: "success", client: confirmed })}
+      onSuccess={onSuccess} onLockChange={onLockChange} onCancel={vi.fn()} embedded />);
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+    await screen.findByRole("button", { name: "Guardado" });
+    expect(onSuccess).toHaveBeenCalledExactlyOnceWith(confirmed);
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(onLockChange).toHaveBeenCalledWith(true);
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+  });
   it.each([undefined, confirmed])("returns to safe filtered list only after confirmed save, edit=%s", async (client) => {
     const action = vi.fn().mockResolvedValue({ status: "success", client: confirmed });
     render(<ClientForm {...props} client={client} action={action} />);

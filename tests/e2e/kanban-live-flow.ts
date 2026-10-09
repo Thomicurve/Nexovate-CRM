@@ -64,7 +64,7 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
   };
   await page.route(isClientActionUrl, intercept);
   const assertTracked = () => { if (trackingFailure) throw trackingFailure; };
-  const handle = () => page.getByRole("button", { name: `Cambiar estado de ${owner.name}`, exact: true });
+  const handle = () => page.getByRole("button", { name: `Arrastrar cliente ${owner.name}`, exact: true });
   const board = page.getByRole("region", { name: "Kanban de clientes" });
   const column = (status: string) => board.locator(`[data-column="${status}"]`);
   const keyboardMove = async (steps: string[], end = "Space") => {
@@ -168,12 +168,12 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     for (const state of STATUSES) expect(await column(state).isVisible()).toBe(state === "Cerrado");
     expect((await column("Cerrado").boundingBox())!.width).toBeCloseTo(358, 0);
     expect((await board.locator(`[data-client="${id}"]`).boundingBox())!.width).toBeCloseTo(326, 0);
-    await page.getByRole("link", { name: `Editar ${owner.name}`, exact: true }).click();
-    await page.getByRole("link", { name: "Cancelar", exact: true }).click();
+    await page.getByRole("button", { name: `Abrir ${owner.name}`, exact: true }).click();
+    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
     await expect(page).toHaveURL(/\/clientes\?/); await expect(board).toBeVisible();
     expect([...new URL(page.url()).searchParams]).toEqual([...params]);
     await page.getByRole("combobox", { name: "Estado visible" }).selectOption("Cerrado");
-    await page.getByRole("link", { name: `Editar ${owner.name}`, exact: true }).click();
+    await page.getByRole("button", { name: `Abrir ${owner.name}`, exact: true }).click();
     await page.getByLabel("Estado", { exact: true }).selectOption("Interesado");
     request(0, await page.locator('[name="request_id"]').inputValue(), id); allowManualEdit = true;
     await page.getByRole("button", { name: "Guardar cambios" }).click();

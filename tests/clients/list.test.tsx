@@ -1,16 +1,101 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientList } from "@/components/clients/client-list";
+import { saveClient } from "@/app/(crm)/clientes/actions";
 import { parseFilters } from "@/lib/clients/filters";
 import { confirmed } from "./fixture";
-vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn(), saveClient: vi.fn() }));
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
 const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", desde: "2026-10-07", vista: "tabla" });
 if (!parsed.ok) throw new Error("valid fixture filters");
 const filters = parsed.filters;
 describe("client table and filter accessibility", () => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
+  });
+  it("opens create and edit locally with full row data and returns to the same opener", async () => {
+    const user = userEvent.setup();
+    render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, notes: "Notas completas", email: "persona@example.com" }], count: 1 }} />);
+    const opener = screen.getByRole("link", { name: "Editar Confirmado" });
+    await user.click(opener);
+    expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Notas")).toHaveValue("Notas completas");
+    expect(screen.getByLabelText("Email")).toHaveValue("persona@example.com");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await screen.findByRole("link", { name: "Editar Confirmado" });
+    await new Promise((resolve) => setTimeout(resolve, 230));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    await user.click(screen.getByRole("link", { name: "Nuevo cliente" }));
+    expect(screen.getByRole("dialog", { name: "Nuevo cliente" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre *")).toHaveValue("");
+    expect(screen.queryByLabelText("Estado")).not.toBeInTheDocument();
+  });
+  it("switches presentation locally and restores browser history without refreshing data or losing drafts", async () => {
+    const user = userEvent.setup();
+    const paged = { ...filters, page: 2 };
+    render(<ClientList result={{ kind: "found", filters: paged, rows: [confirmed], count: 101 }} />);
+    await user.type(screen.getByLabelText("Nombre"), " draft");
+    await user.click(screen.getByRole("link", { name: "Kanban" }));
+    expect(screen.getByRole("region", { name: "Kanban de clientes" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado draft");
+    expect(window.location.search).toContain("pagina=2");
+    expect(window.location.search).not.toContain("vista=tabla");
+    act(() => { window.history.replaceState(null, "", "/clientes?pagina=2&vista=tabla"); window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(screen.getByRole("table", { name: "Clientes" })).toHaveTextContent("Confirmado");
+    expect(screen.getByText("Página 2 · 101 clientes")).toBeVisible();
+    expect(navigation.refresh).not.toHaveBeenCalled();
+  });
+  it.each([false, true])("recovers focus after a saved row disappears, preserving a later user focus (%s)", async (keepFocus) => {
+    const user = userEvent.setup();
+    const result = { kind: "found" as const, filters, rows: [confirmed], count: 1 };
+    vi.mocked(saveClient).mockResolvedValueOnce({ status: "success", client: { ...confirmed, name: "Fuera del filtro" } });
+    const { rerender } = render(<ClientList result={result} />);
+    await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await new Promise((resolve) => setTimeout(resolve, 230));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const chosen = screen.getByRole("link", { name: "Nuevo cliente" });
+    if (keepFocus) chosen.focus();
+    rerender(<ClientList result={{ ...result, rows: [], count: 0 }} />);
+    expect(keepFocus ? chosen : screen.getByRole("link", { name: "Tabla" })).toHaveFocus();
+  });
+  it("refreshes once, retains the last page on failure and supports recovery with the same filters", async () => {
+    navigation.refresh.mockClear();
+    let finish!: () => void;
+    navigation.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const user = userEvent.setup();
+    const result = { kind: "found" as const, filters, rows: [confirmed], count: 1 };
+    const { rerender } = render(<ClientList result={result} />);
+    await user.click(screen.getByRole("button", { name: "Actualizar" }));
+    await user.click(screen.getByRole("button", { name: /Actualizando/ }));
+    expect(navigation.refresh).toHaveBeenCalledOnce();
+    rerender(<ClientList result={{ kind: "unavailable", filters }} />);
+    await act(async () => finish());
+    expect(screen.getByRole("table")).toHaveTextContent("Confirmado");
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar los clientes");
+    await user.click(screen.getByRole("button", { name: "Reintentar actualización" }));
+    expect(navigation.refresh).toHaveBeenCalledTimes(2);
+    rerender(<ClientList result={{ ...result, rows: [{ ...confirmed, name: "Actualizado" }] }} />);
+    expect(screen.getByRole("table")).toHaveTextContent("Actualizado");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado");
+  });
+  it("recovers when a refresh transition finishes without receiving a server snapshot", async () => {
+    let finish!: () => void;
+    navigation.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Actualizando clientes");
+    await act(async () => finish());
+    expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");
+    expect(screen.getByRole("table")).toHaveTextContent("Confirmado");
+  });
   it("renders agreed columns, BA dates, optional fields and filter-preserving edit/create links", () => {
     render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
     const table = screen.getByRole("table", { name: "Clientes" });
@@ -49,7 +134,7 @@ describe("client table and filter accessibility", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Revisá el rango de fechas.");
     rerender(<ClientList result={{ kind: "unavailable", filters }} />);
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos cargar los clientes.");
-    expect(screen.getByRole("link", { name: "Reintentar" })).toHaveAttribute("href", expect.stringContaining("nombre=Confirmado"));
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeEnabled();
   });
   it("paginates beyond the API page while preserving every applied filter", () => {
     render(<ClientList result={{ kind: "found", filters: { ...filters, page: 2 }, rows: [confirmed], count: 101 }} />);

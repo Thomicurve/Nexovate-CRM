@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useLayoutEffect, useRef, useState } from "react";
 import { isClient, safeReturnPath, STATUSES, type Client, type SaveState } from "@/lib/clients/model";
 import { useNotification } from "@/components/ui/notifications";
 import { utcToLocal } from "@/lib/clients/dates";
 import styles from "./clients.module.css";
 
-type Props = { client?: Client; requestId: string; initialContact: string; returnTo: string;
-  action: (state: SaveState, form: FormData) => Promise<SaveState> };
+export type ClientFormProps = { client?: Client; requestId: string; initialContact: string; returnTo: string;
+  action: (state: SaveState, form: FormData) => Promise<SaveState>; embedded?: boolean; closing?: boolean;
+  onSuccess?: (client: Client) => void; onCancel?: () => void; onLockChange?: (locked: boolean) => void };
+type Props = ClientFormProps;
 export function ClientForm(props: Props) {
   const [client, setClient] = useState(props.client);
   const [generation, setGeneration] = useState(0);
@@ -18,16 +20,21 @@ export function ClientForm(props: Props) {
     resume={(confirmed) => { setClient(confirmed); setRequest(crypto.randomUUID()); setGeneration((value) => value + 1); }} />;
 }
 
-function FormBody({ client, requestId, initialContact, returnTo, action, resume }: Props & { resume: (client: Client) => void }) {
+function FormBody({ client, requestId, initialContact, returnTo, action, resume, embedded, closing, onSuccess, onCancel, onLockChange }: Props & { resume: (client: Client) => void }) {
   const router = useRouter(), notify = useNotification();
+  const firstField = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => { if (embedded) firstField.current?.focus(); }, [embedded]);
   const [state, submit, pending] = useActionState(async (previous: SaveState, form: FormData): Promise<SaveState> => {
+    onLockChange?.(true);
     try {
       const result = await action(previous, form);
       if (result.status === "success") {
         if (!isClient(result.client)) return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos." };
         notify(client ? "Cliente actualizado" : "Cliente creado", result.client.name);
-        router.replace(safeReturnPath(returnTo));
+        if (onSuccess) onSuccess(result.client);
+        else router.replace(safeReturnPath(returnTo));
       }
+      onLockChange?.(result.status === "success" || result.status === "error" && result.retry === true);
       return result;
     }
     catch (error) {
@@ -36,13 +43,16 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
       return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos antes de salir." };
     }
   }, { status: "idle" } as SaveState);
-  const disabled = pending || state.status === "success";
+  const disabled = pending || state.status === "success" || Boolean(closing);
   const [intent, setIntent] = useState(requestId);
   const [values, setValues] = useState({ name: client?.name ?? "", company: client?.company ?? "",
     email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
     contact_at: client ? utcToLocal(client.contact_at) : initialContact,
     meeting_at: client?.meeting_at ? utcToLocal(client.meeting_at) : "", status: client?.status ?? "Contactado" });
   const frozen = state.status === "error" && state.retry === true;
+  const cancel = onCancel ? <button type="button" className={styles.secondaryButton} disabled={disabled || frozen} onClick={onCancel}>Cancelar</button> :
+    <Link href={returnTo} aria-disabled={disabled || frozen} tabIndex={disabled || frozen ? -1 : undefined}
+      onClick={(event) => { if (disabled || frozen) event.preventDefault(); }}>Cancelar</Link>;
   const change = (field: keyof typeof values, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
     if (state.status === "invalid" || state.status === "error" && !state.retry) setIntent(crypto.randomUUID());
@@ -51,6 +61,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
     <div className={styles.field}>
       <label htmlFor={name}>{label}</label>
       <input id={name} name={name} type={type} maxLength={maxLength} value={values[name]}
+        ref={name === "name" ? firstField : undefined}
         required={name === "name" || name === "contact_at"} readOnly={frozen} disabled={disabled}
         onChange={(event) => change(name, event.target.value)}
         aria-invalid={Boolean(state.errors?.[name])} aria-describedby={`${name}-hint${state.errors?.[name] ? ` ${name}-error` : ""}`} />
@@ -62,8 +73,8 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
     </div>
   );
   if (state.status === "conflict" && state.confirmed) return (
-    <section className={styles.panel}>
-      <h1>Editar cliente</h1>
+    <section className={embedded ? styles.modalForm : styles.panel}>
+      {!embedded && <h1>Editar cliente</h1>}
       <p className={styles.error} role="alert">Este cliente se actualizó mientras lo editabas.</p>
       <p>Versión confirmada: {state.confirmed.version}</p>
       <dl className={styles.confirmed}>
@@ -74,15 +85,15 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
       </dl>
       <p className={styles.hint}>Tus cambios no se guardaron. Volvé a editar la versión confirmada.</p>
       <div className={styles.actions}><button type="button" onClick={() => resume(state.confirmed!)}>Volver a editar</button>
-        <Link href={returnTo}>Cancelar</Link></div>
+        {cancel}</div>
     </section>
   );
   return (
-    <section className={styles.panel}>
-      <h1>{client ? "Editar cliente" : "Nuevo cliente"}</h1>
+    <section className={embedded ? styles.modalForm : styles.panel}>
+      {!embedded && <h1>{client ? "Editar cliente" : "Nuevo cliente"}</h1>}
       <p className={styles.hint}>* Obligatorio. Fechas en horario de Buenos Aires.</p>
       {!client && <p className={styles.hint}>El cliente se crea en Contactado.</p>}
-      <form action={submit} noValidate aria-busy={disabled}>
+      <form action={submit} noValidate aria-busy={disabled} onSubmit={() => onLockChange?.(true)}>
         <input type="hidden" name="request_id" value={intent} />
         <input type="hidden" name="client_id" value={client?.id ?? ""} />
         <input type="hidden" name="version" value={client?.version ?? ""} />
@@ -110,7 +121,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume 
         {pending && <p className={styles.hint} role="status">Guardando cliente…</p>}
         <div className={styles.actions}><button type="submit" disabled={disabled}>
           {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
-        </button><Link href={returnTo}>Cancelar</Link></div>
+        </button>{cancel}</div>
       </form>
     </section>
   );

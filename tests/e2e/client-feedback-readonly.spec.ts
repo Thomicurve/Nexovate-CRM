@@ -68,7 +68,8 @@ test("feedback presentation, navigation and existing-card drag cancellation with
   const card = board.locator("[data-client]").first();
   if (await card.count()) {
     await card.scrollIntoViewIfNeeded();
-    const edit = card.getByRole("link", { name: /Editar/ }), editPath = await edit.getAttribute("href");
+    const edit = card.getByRole("button", { name: /^Abrir / });
+    const editPath = `/clientes/${await card.getAttribute("data-client")}/editar?returnTo=${encodeURIComponent(new URL(page.url()).pathname + new URL(page.url()).search)}`;
     const body = await card.getByRole("heading").boundingBox(); expect(body).not.toBeNull();
     const origin = await card.evaluate((node) => node.closest<HTMLElement>("[data-column]")!.dataset.column);
     const target = board.locator(`[data-column="${order.find((status) => status !== origin)}"]`);
@@ -83,16 +84,17 @@ test("feedback presentation, navigation and existing-card drag cancellation with
     await expect(card).toHaveCSS("border-top-color", "rgb(166, 202, 255)");
     await page.keyboard.press("Escape"); await page.mouse.up();
     await expect(board.getByText("Soltar aquí", { exact: true })).toHaveCount(0);
-    const handle = card.getByRole("button", { name: /Cambiar estado/ });
+    const handle = card.getByRole("button", { name: /^Arrastrar cliente / });
     await handle.focus(); await page.keyboard.press("Space");
     await page.keyboard.press(origin === "Respuesta negativa" ? "ArrowLeft" : "ArrowRight");
     await expect(board.getByText("Soltar aquí", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape"); await expect(handle).toBeFocused();
-    await edit.click(); await expect(page).toHaveURL(/\/editar\?/);
+    const listUrl = page.url();
+    await edit.click(); await expect(page.getByRole("dialog", { name: "Editar cliente" })).toBeVisible(); await expect(page).toHaveURL(listUrl);
     await page.goto(`${editPath}&guardado=1`);
     await expect(page.getByText("Cliente guardado.", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Cliente actualizado", { exact: true })).toHaveCount(0);
-    await page.getByRole("link", { name: "Cancelar", exact: true }).click();
+    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
     console.log("TASK009 readonly: existing-card body pointer/cue/Escape/keyboard/Edit verified.");
   } else {
     console.log("TASK009 readonly: portfolio empty; browser drag checks unavailable, covered by real sensors in React tests.");

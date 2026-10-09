@@ -25,7 +25,7 @@ test("real SSR form geometry, timezone and server validation without client writ
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto("/clientes/nuevo?returnTo=%2Fclientes%3Fnombre%3DUIcheck");
     await expect(page.getByRole("heading", { name: "Nuevo cliente" })).toBeVisible();
-    const panel = await page.locator("section").boundingBox();
+    const panel = await page.getByRole("dialog", { name: "Nuevo cliente" }).boundingBox();
     expect(panel?.width).toBeCloseTo(800, 0);
     const nameBox = await page.getByLabel("Nombre *").boundingBox();
     const companyBox = await page.getByLabel("Empresa").boundingBox();
@@ -43,12 +43,12 @@ test("real SSR form geometry, timezone and server validation without client writ
     await expect(page.locator("#email-error")).toHaveText("Ingresá un email válido.");
     await expect(page.getByLabel("Email")).toHaveValue("broken");
     await page.setViewportSize({ width: 390, height: 960 });
-    expect((await page.locator("section").boundingBox())?.width).toBeCloseTo(358, 0);
+    expect((await page.getByRole("dialog", { name: "Nuevo cliente" }).boundingBox())?.width).toBeCloseTo(366, 0);
     const mobileName = await page.getByLabel("Nombre *").boundingBox();
     const mobileCompany = await page.getByLabel("Empresa").boundingBox();
     expect(mobileCompany!.y).toBeGreaterThan(mobileName!.y + mobileName!.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.getByRole("link", { name: "Cancelar" }).click();
+    await page.getByRole("button", { name: "Cancelar" }).click();
     await expect(page).toHaveURL(/\/clientes\?nombre=UIcheck$/);
     const board = page.getByRole("region", { name: "Kanban de clientes" });
     await expect(board).toBeVisible();
