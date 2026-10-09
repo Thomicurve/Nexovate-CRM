@@ -8,25 +8,44 @@ import { useNotification } from "@/components/ui/notifications";
 import { utcToLocal } from "@/lib/clients/dates";
 import { usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./clients.module.css";
+import HoldButton from "@/components/ui/HoldButton";
+import type { DeleteIntent, DeleteResult } from "@/lib/clients/delete";
 
 export type ClientFormProps = { client?: Client; requestId: string; initialContact: string; returnTo: string;
   action: (state: SaveState, form: FormData) => Promise<SaveState>; embedded?: boolean; closing?: boolean;
+  deleteAction?: (intent: DeleteIntent) => Promise<DeleteResult>; onDeleted?: () => void;
   onSuccess?: (client: Client) => void; onCancel?: () => void; onLockChange?: (locked: boolean) => void };
 type Props = ClientFormProps;
 export function ClientForm(props: Props) {
   const [client, setClient] = useState(props.client);
   const [generation, setGeneration] = useState(0);
   const [request, setRequest] = useState(props.requestId);
-  return <FormBody key={generation} {...props} client={client} requestId={request}
+  return <FormBody key={generation} {...props} client={client} requestId={request} focusOnMount={generation > 0}
     resume={(confirmed) => { setClient(confirmed); setRequest(crypto.randomUUID()); setGeneration((value) => value + 1); }} />;
 }
 
-function FormBody({ client, requestId, initialContact, returnTo, action, resume, embedded, closing, onSuccess, onCancel, onLockChange }: Props & { resume: (client: Client) => void }) {
+function FormBody({ client, requestId, initialContact, returnTo, action, deleteAction, onDeleted, resume, focusOnMount, embedded, closing, onSuccess, onCancel, onLockChange }: Props & { resume: (client: Client) => void; focusOnMount: boolean }) {
   const router = useRouter(), notify = useNotification();
   const [navigating, transition] = useTransition();
   usePendingLoading(navigating);
   const firstField = useRef<HTMLInputElement>(null);
-  useLayoutEffect(() => { if (embedded) firstField.current?.focus(); }, [embedded]);
+  useLayoutEffect(() => { if (focusOnMount) firstField.current?.focus(); }, [focusOnMount]);
+  const deletion = useRef<DeleteIntent | null>(null), deleting = useRef(false);
+  const [deletePending, setDeletePending] = useState(false), [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
+  usePendingLoading(deletePending);
+  async function remove() {
+    if (!client || !deleteAction || deleting.current || deleteUnavailable) return;
+    deletion.current ??= Object.freeze({ requestId: crypto.randomUUID(), clientId: client.id, version: client.version });
+    deleting.current = true; setDeletePending(true); onLockChange?.(true);
+    let result: DeleteResult;
+    try { result = await deleteAction(deletion.current); }
+    catch { result = { kind: "error", retry: true, message: "No podemos confirmar el borrado. Reintentá la misma intención." }; }
+    setDeleteResult(result); setDeletePending(false); deleting.current = false;
+    if (result.kind === "success") {
+      notify("Cliente eliminado", client.name);
+      if (onDeleted) onDeleted(); else transition(() => router.replace(safeReturnPath(returnTo)));
+    } else onLockChange?.(result.kind === "conflict" || result.kind === "error" && result.retry);
+  }
   const [state, submit, pending] = useActionState(async (previous: SaveState, form: FormData): Promise<SaveState> => {
     onLockChange?.(true);
     try {
@@ -47,13 +66,16 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume,
     }
   }, { status: "idle" } as SaveState);
   usePendingLoading(pending);
-  const disabled = pending || state.status === "success" || Boolean(closing);
+  const deleteLocked = deletePending || deleteResult?.kind === "success" || deleteResult?.kind === "conflict" || deleteResult?.kind === "error" && deleteResult.retry;
+  const disabled = pending || state.status === "success" || Boolean(closing) || deleteLocked;
   const [intent, setIntent] = useState(requestId);
   const [values, setValues] = useState({ name: client?.name ?? "", company: client?.company ?? "",
     email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
     contact_at: client ? utcToLocal(client.contact_at) : initialContact,
     meeting_at: client?.meeting_at ? utcToLocal(client.meeting_at) : "", status: client?.status ?? "Contactado" });
   const frozen = state.status === "error" && state.retry === true;
+  const deleteUnavailable = pending || frozen || state.status === "success" || Boolean(closing) || navigating ||
+    deletePending || deleteResult?.kind === "success" || deleteResult?.kind === "conflict";
   const cancel = onCancel ? <button type="button" className={styles.secondaryButton} disabled={disabled || frozen} onClick={onCancel}>Cancelar</button> :
     <Link href={returnTo} aria-disabled={disabled || frozen} tabIndex={disabled || frozen ? -1 : undefined}
       onClick={(event) => { if (disabled || frozen) event.preventDefault(); }}>Cancelar</Link>;
@@ -126,6 +148,17 @@ function FormBody({ client, requestId, initialContact, returnTo, action, resume,
           {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
         </button>{cancel}</div>
       </form>
+      {client && deleteAction && <section className={styles.deleteSection} aria-label="Borrar cliente">
+        <h2>Borrar cliente</h2><p>El cliente desaparecerá de la lista. Su historial y sus métricas permanecen.</p>
+        <p className={styles.hint}>Mantené el botón durante 2 segundos. Soltar antes cancela.</p>
+        {deleteResult?.kind === "conflict" ? <><p className={styles.error} role="alert">El cliente cambió mientras lo editabas. Volvé a Clientes para revisar la versión actual antes de borrar.</p>
+          <button type="button" onClick={() => { onLockChange?.(false); if (onCancel) onCancel(); else transition(() => router.replace(safeReturnPath(returnTo))); }}>Volver a Clientes</button></> :
+          deleteResult?.kind === "error" ? <><p className={styles.error} role="alert">{deleteResult.message}</p>
+            <button type="button" disabled={deleteUnavailable} onClick={remove}>Reintentar borrado</button></> :
+          <HoldButton holdTime={2000} doneLabel="Confirmando borrado…" disabled={disabled || frozen || navigating} onHold={remove}
+            size="lg" backgroundColor="#121f35" fillColor="#f0aeb5" textColor="#f0aeb5" fillTextColor="#080e1b"
+            className={styles.deleteButton}>Mantener para borrar</HoldButton>}
+      </section>}
     </section>
   );
 }

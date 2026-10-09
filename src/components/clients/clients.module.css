@@ -150,3 +150,7 @@
   .mobileContact { display: block; font-size: 12px; color: var(--secondary); margin-top: 6px; }
   .listState { padding: 24px; }
 }
+.deleteSection { margin-top: 28px; padding-top: 24px; border-top: 1px solid #354760; }
+.deleteSection h2 { font-size: 18px; color: #f0aeb5; }
+.deleteSection p { color: #a6b7ce; margin: 12px 0; }
+.deleteButton { min-height: 48px; width: 100%; outline-color: #a6caff !important; }

@@ -7,7 +7,7 @@ export async function getClient(id: string) {
   const { client } = await requireMember();
   if (!UUID.test(id)) return { kind: "missing" as const };
   try {
-    const { data, error } = await client.from("clients").select(CLIENT_FIELDS).eq("id", id).maybeSingle();
+    const { data, error } = await client.from("clients").select(CLIENT_FIELDS).is("deleted_at", null).eq("id", id).maybeSingle();
     if (error) return { kind: "unavailable" as const };
     if (!data) return { kind: "missing" as const };
     return isClient(data) ? { kind: "found" as const, client: data } : { kind: "unavailable" as const };
@@ -20,7 +20,7 @@ export async function listClients(params: SearchParams): Promise<ListResult> {
   if (!parsed.ok) return { kind: "invalid", message: parsed.message };
   const filters = parsed.filters;
   try {
-    let query = client.from("clients").select(CLIENT_FIELDS, { count: "exact" });
+    let query = client.from("clients").select(CLIENT_FIELDS, { count: "exact" }).is("deleted_at", null);
     if (filters.name) query = query.regexIMatch("name", filters.name.replace(/[.*+?^${}()|[\]\\]/g, (value) => `\\${value}`));
     if (filters.statuses.length) query = query.in("status", filters.statuses);
     if (filters.fromUtc) query = query.gte("contact_at", filters.fromUtc);

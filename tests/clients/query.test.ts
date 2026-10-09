@@ -3,7 +3,7 @@ import { listClients } from "@/lib/clients/server";
 import { confirmed } from "./fixture";
 
 const f = vi.hoisted(() => ({ guard: vi.fn(), from: vi.fn(), select: vi.fn(), ilike: vi.fn(), regexIMatch: vi.fn(), in: vi.fn(),
-  gte: vi.fn(), lt: vi.fn(), order: vi.fn(), range: vi.fn() }));
+  gte: vi.fn(), lt: vi.fn(), order: vi.fn(), range: vi.fn(), is: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-member", () => ({ requireMember: f.guard }));
 
@@ -11,7 +11,7 @@ describe("guarded paginated client queries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     f.guard.mockResolvedValue({ client: { from: f.from } });
-    for (const key of ["from", "select", "ilike", "regexIMatch", "in", "gte", "lt", "order"] as const) f[key].mockReturnValue(f);
+    for (const key of ["from", "select", "ilike", "regexIMatch", "in", "gte", "lt", "order", "is"] as const) f[key].mockReturnValue(f);
     f.range.mockResolvedValue({ data: [confirmed], count: 51, error: null });
   });
   it("guards first and combines literal partial case-insensitive name, states and inclusive BA dates", async () => {
@@ -19,6 +19,7 @@ describe("guarded paginated client queries", () => {
       desde: "2026-10-07", hasta: "2026-10-07", pagina: "2" });
     expect(result.kind).toBe("found");
     expect(f.guard).toHaveBeenCalledOnce();
+    expect(f.is).toHaveBeenCalledWith("deleted_at", null);
     expect(f.regexIMatch).toHaveBeenCalledWith("name", "A%_\\\\");
     expect(f.in).toHaveBeenCalledWith("status", ["Contactado", "Cerrado"]);
     expect(f.gte).toHaveBeenCalledWith("contact_at", "2026-10-07T03:00:00.000Z");

@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useTransition, type Mouse
 import { CLIENT_TIME_ZONE, utcToLocal } from "@/lib/clients/dates";
 import { listPath, PAGE_SIZE, parseFilters, type ListResult } from "@/lib/clients/filters";
 import { STATUSES, type Client, type ClientStatus } from "@/lib/clients/model";
-import { saveClient } from "@/app/(crm)/clientes/actions";
+import { deleteClient, saveClient } from "@/app/(crm)/clientes/actions";
 import styles from "./clients.module.css";
 import { ClientKanban } from "./client-kanban";
 import { ClientModal } from "./client-modal";
@@ -182,7 +182,10 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
       <span>Página {applied.page} · {result.count} clientes</span>
       {applied.page * PAGE_SIZE < result.count && <Link aria-disabled={locked} tabIndex={locked ? -1 : undefined} href={listPath(applied, applied.page + 1)}>Siguiente</Link>}
     </nav>}
-    {modal && <ClientModal {...modal} action={saveClient} returnTo={returnTo} onClose={() => setModal(null)}
+    {modal && <ClientModal {...modal} action={saveClient} deleteAction={deleteClient} returnTo={returnTo} onClose={() => setModal(null)}
+      onDeleted={() => { savedFocus.current = { opener: modalOpener.current, snapshot: result }; setModal(null);
+        const nextPage = result.kind === "found" ? Math.min(applied.page, Math.max(1, Math.ceil((result.count - 1) / PAGE_SIZE))) : applied.page;
+        startTransition(() => { if (nextPage !== applied.page) router.replace(listPath(applied, nextPage)); else router.refresh(); }); }}
       onSaved={() => { savedFocus.current = { opener: modalOpener.current, snapshot: result }; setModal(null); startTransition(() => router.refresh()); }} />}
   </section>;
 }

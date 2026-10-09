@@ -7,7 +7,7 @@ import { ClientList } from "@/components/clients/client-list";
 import { saveClient } from "@/app/(crm)/clientes/actions";
 import { parseFilters } from "@/lib/clients/filters";
 import { confirmed } from "./fixture";
-vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn(), saveClient: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn(), saveClient: vi.fn(), deleteClient: vi.fn() }));
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
@@ -18,6 +18,7 @@ const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
 
 describe("client table and filter accessibility", () => {
   beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
     Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
   });

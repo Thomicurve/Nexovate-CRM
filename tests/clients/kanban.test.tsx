@@ -14,9 +14,10 @@ const f = vi.hoisted(() => ({ refresh: vi.fn(), move: vi.fn() }));
 const order = ["Contactado", "Interesado", "Reunión agendada", "Cerrado", "Sin respuesta", "Respuesta negativa"];
 const render = (ui: ReactNode) => renderUi(ui, { wrapper: ({ children }) => <NotificationProvider><WithLoading>{children}</WithLoading></NotificationProvider> });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: f.refresh }) }));
-vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: f.move, saveClient: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: f.move, saveClient: vi.fn(), deleteClient: vi.fn() }));
 describe("shared client views and approved board controls", () => {
   beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     vi.restoreAllMocks(); vi.clearAllMocks(); f.move.mockReset();
     localStorage.clear();
     window.getSelection()?.removeAllRanges();
@@ -66,7 +67,7 @@ describe("shared client views and approved board controls", () => {
       expect(screen.getByLabelText("Notas")).toHaveValue("Datos completos");
       await user.click(screen.getByRole("button", { name: "Cancelar" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-      expect(card).toHaveFocus();
+      await waitFor(() => { expect(card).toHaveFocus(); expect(document.body.style.overflow).not.toBe("hidden"); });
     }
     expect(f.move).not.toHaveBeenCalled(); expect(f.refresh).not.toHaveBeenCalled();
   });

@@ -25,7 +25,7 @@ describe("client modal lifecycle and guarded form", () => {
     expect(screen.getByRole("dialog")).toHaveAttribute("data-closing", "true");
     expect(screen.getByRole("button", { name: "Crear cliente" })).toBeDisabled();
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
-    unmount(); expect(opener).toHaveFocus(); expect(document.body.style.overflow).toBe(overflow); opener.remove();
+    unmount(); await waitFor(() => expect(opener).toHaveFocus()); expect(document.body.style.overflow).toBe(overflow); opener.remove();
   });
   it("does not dismiss a pending or ambiguous save, preserves exact request and closes only after confirmed retry", async () => {
     let finish!: (state: SaveState) => void;

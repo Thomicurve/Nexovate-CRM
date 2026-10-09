@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { moveClient, saveClient } from "@/app/(crm)/clientes/actions";
+import { deleteClient, moveClient, saveClient } from "@/app/(crm)/clientes/actions";
 import NewClientPage from "@/app/(crm)/clientes/nuevo/page";
 import EditClientPage from "@/app/(crm)/clientes/[id]/editar/page";
 import ClientsPage from "@/app/(crm)/clientes/page";
@@ -7,7 +7,7 @@ import { getClient } from "@/lib/clients/server";
 import { clientId, requestId, confirmed, form } from "./fixture";
 
 const f = vi.hoisted(() => ({ guard: vi.fn(), rpc: vi.fn(), from: vi.fn(), select: vi.fn(), eq: vi.fn(),
-  single: vi.fn(), order: vi.fn(), range: vi.fn(), redirect: vi.fn(), revalidate: vi.fn(), notFound: vi.fn() }));
+  single: vi.fn(), order: vi.fn(), range: vi.fn(), is: vi.fn(), redirect: vi.fn(), revalidate: vi.fn(), notFound: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-member", () => ({ requireMember: f.guard }));
 vi.mock("next/navigation", () => ({ redirect: f.redirect, notFound: f.notFound, useRouter: () => ({ refresh: vi.fn() }) }));
@@ -16,7 +16,7 @@ describe("client pages, actions and DAL server boundaries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     f.guard.mockResolvedValue({ client: { rpc: f.rpc, from: f.from }, userId: "synthetic-member" });
-    f.from.mockReturnValue({ select: f.select }); f.select.mockReturnValue({ eq: f.eq, order: f.order }); f.eq.mockReturnValue({ maybeSingle: f.single });
+    f.from.mockReturnValue({ select: f.select }); f.select.mockReturnValue({ is: f.is }); f.is.mockReturnValue({ eq: f.eq, order: f.order }); f.eq.mockReturnValue({ maybeSingle: f.single });
     f.order.mockReturnValue({ order: f.order, range: f.range }); f.range.mockResolvedValue({ data: [], count: 0, error: null });
     f.single.mockResolvedValue({ data: confirmed, error: null }); f.rpc.mockResolvedValue({ data: confirmed, error: null });
     f.redirect.mockImplementation((path) => { throw new Error(`redirect:${path}`); });
@@ -33,8 +33,17 @@ describe("client pages, actions and DAL server boundaries", () => {
     expect(await getClient(clientId)).toEqual({ kind: "found", client: confirmed });
     expect(f.guard).toHaveBeenCalledOnce(); expect(f.from).toHaveBeenCalledWith("clients");
     expect(f.eq).toHaveBeenCalledWith("id", clientId);
+    expect(f.is).toHaveBeenCalledWith("deleted_at", null);
     f.single.mockResolvedValue({ data: { id: clientId }, error: null });
     expect(await getClient(clientId)).toEqual({ kind: "unavailable" });
+  });
+  it("guards delete and invalidates clients and dashboard only after a matching receipt", async () => {
+    f.rpc.mockResolvedValue({ data: { client_id: clientId, request_id: requestId, version: 3, deleted_at: "2026-10-09T12:00:00Z" }, error: null });
+    expect(await deleteClient({ requestId, clientId, version: 2 })).toEqual({ kind: "success" });
+    expect(f.guard).toHaveBeenCalledOnce(); expect(f.revalidate.mock.calls).toEqual([["/clientes"], ["/dashboard"]]);
+    f.revalidate.mockClear(); f.rpc.mockRejectedValue(new Error("transport"));
+    expect(await deleteClient({ requestId, clientId, version: 2 })).toMatchObject({ kind: "error", retry: true });
+    expect(f.revalidate).not.toHaveBeenCalled();
   });
   it("guards a status-only move and revalidates only confirmed success without redirect", async () => {
     const intent = { requestId, clientId, version: 2, from: "Contactado", to: "Cerrado" };

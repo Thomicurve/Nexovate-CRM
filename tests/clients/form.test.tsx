@@ -63,6 +63,7 @@ describe("approved client form interaction", () => {
     expect(screen.getByRole("combobox", { name: "Estado" })).toBeVisible();
     expect(screen.getAllByRole("option")).toHaveLength(6);
     expect(screen.getByLabelText("Nombre *")).toHaveValue("Confirmado");
+
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
   });
   it("announces pending and freezes duplicate submits", async () => {
@@ -94,6 +95,7 @@ describe("approved client form interaction", () => {
     expect(screen.getByText("Versión confirmada: 2")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Guardar cambios" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Volver a editar" }));
+    expect(screen.getByLabelText("Nombre *")).toHaveFocus();
     expect(screen.getByLabelText("Nombre *")).toHaveValue("Confirmado");
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
   });

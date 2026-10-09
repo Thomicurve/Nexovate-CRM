@@ -5,6 +5,13 @@ import { performSave } from "@/lib/clients/mutations";
 import { getClient } from "@/lib/clients/server";
 import { type SaveState } from "@/lib/clients/model";
 import { performMove, type MoveResult } from "@/lib/clients/moves";
+import { performDelete, type DeleteResult } from "@/lib/clients/delete";
+export async function deleteClient(intent: unknown): Promise<DeleteResult> {
+  const { client } = await requireMember();
+  const result = await performDelete(client, intent);
+  if (result.kind === "success") { revalidatePath("/clientes"); revalidatePath("/dashboard"); }
+  return result;
+}
 export async function moveClient(intent: unknown): Promise<MoveResult> {
   const { client } = await requireMember();
   const result = await performMove(client, intent, async (id) => {

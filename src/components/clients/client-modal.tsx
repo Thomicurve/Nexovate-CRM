@@ -23,18 +23,26 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current);
       surface.close(); releaseScroll();
-      if (opener?.isConnected) opener.focus();
-      else document.querySelector<HTMLElement>('[aria-label="Vista de clientes"] [aria-current]')?.focus();
+      queueMicrotask(() => {
+        if (opener?.isConnected) opener.focus();
+        else document.querySelector<HTMLElement>('[aria-label="Vista de clientes"] [aria-current]')?.focus();
+      });
     };
   }, []);
-  function close(saved?: Client) {
-    if (exit.current || blocked.current && !saved) return;
+  function close(saved?: Client, deleted = false) {
+    if (exit.current || blocked.current && !saved && !deleted) return;
     exit.current = true; setClosing(true);
     const delay = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 200;
     closeTimer.current = setTimeout(() => {
-      if (saved && onSaved) onSaved(saved);
+      if (deleted && form.onDeleted) form.onDeleted();
+      else if (saved && onSaved) onSaved(saved);
       else if (onClose) onClose();
-      else transition(() => router.replace(safeReturnPath(form.returnTo)));
+      else transition(() => {
+        const destination = new URL(safeReturnPath(form.returnTo), "https://local.invalid");
+        // A standalone edit has no list count; the first filtered page is always valid.
+        if (deleted) destination.searchParams.delete("pagina");
+        router.replace(destination.pathname + destination.search);
+      });
     }, delay);
   }
   return <dialog ref={dialog} aria-labelledby={titleId} aria-modal="true" className={styles.modal} data-closing={closing || undefined}
@@ -42,6 +50,7 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
     <header className={styles.modalHeader}><h1 id={titleId}>{form.client ? "Editar cliente" : "Nuevo cliente"}</h1>
       <button type="button" aria-label="Cerrar formulario" disabled={locked || closing} onClick={() => close()}>×</button></header>
     <ClientForm {...form} embedded closing={closing} onCancel={() => close()} onSuccess={(client) => close(client)}
+      onDeleted={() => close(undefined, true)}
       onLockChange={(next) => { blocked.current = next; setLocked(next); }} />
   </dialog>;
 }

@@ -1,0 +1,34 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { expect, it, vi } from "vitest";
+import { ClientList } from "@/components/clients/client-list";
+import { NotificationProvider } from "@/components/ui/notifications";
+import { WithLoading } from "../ui/loading-test-support";
+import { parseFilters } from "@/lib/clients/filters";
+import { confirmed } from "./fixture";
+const f = vi.hoisted(() => ({ remove: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/actions", () => ({ deleteClient: f.remove, saveClient: vi.fn(), moveClient: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => f }));
+// Hold duration is tested with the real component separately; here verify list reconciliation.
+vi.mock("@/components/ui/HoldButton", () => ({ default: ({ onHold }: { onHold: () => void }) => <button onClick={onHold}>Confirmar intención</button> }));
+it("closes only confirmed deletion and recovers last-result page preserving filters/view", async () => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
+  let settle!: (value: { kind: "success" }) => void;
+  f.remove.mockImplementation(() => new Promise((resolve) => { settle = resolve; }));
+  const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", vista: "tabla", pagina: "2" });
+  if (!parsed.ok) throw new Error("fixture");
+  render(<NotificationProvider><WithLoading><ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 51 }} /></WithLoading></NotificationProvider>);
+  await userEvent.click(screen.getByRole("link", { name: "Editar Confirmado" }));
+  await userEvent.click(screen.getByRole("button", { name: "Confirmar intención" }));
+  expect(screen.queryByText("Cliente eliminado")).not.toBeInTheDocument();
+  expect(f.replace).not.toHaveBeenCalled();
+  settle({ kind: "success" });
+  await waitFor(() => expect(f.replace).toHaveBeenCalledOnce());
+  const path = new URL(f.replace.mock.calls[0][0], "https://local.invalid");
+  expect(path.searchParams.get("pagina")).toBeNull();
+  expect(path.searchParams.get("nombre")).toBe("Confirmado");
+  expect(path.searchParams.get("estado")).toBe("Contactado");
+  expect(path.searchParams.get("vista")).toBe("tabla");
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Editar cliente" })).not.toBeInTheDocument());
+});
