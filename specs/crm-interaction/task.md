@@ -21,6 +21,8 @@ Pruebas conductuales específicas por tarea, npm run lint, npm run typecheck y g
 
 Playwright sin capturas, vídeos ni trazas, ya desactivados en playwright.config.ts. Comprobar DOM, teclado, móvil y consultas en un entorno local aislado; no interferir con servicios del usuario. Las pruebas positivas de escritura usan dobles/locales, sin modificar clientes reales ni crear fixtures de Supabase. Si alguna prueba necesaria requiere permiso adicional, preparar el procedimiento concreto antes de solicitarlo.
 
+**Excepción de comprobación solicitada por el usuario para TASK-003:** «si corriste los test y pasaron, directamente demos por sentado que funciona y listo, en este caso». Se acepta la prueba conductual verde del candidato actual; se detiene la investigación del arranque Vite y no se exige otra comprobación de navegador ni una batería duplicada para cerrar esta tarea. Se conserva revisión y commit locales proporcionales. Los intentos del arnés kanban agotaron el límite esperando assets locales antes de cualquier interacción: no se atribuyen pruebas de gestos en Chrome. WU-001/WU-002 mantienen su evidencia aceptada.
+
 ## Tareas
 
 ### TASK-001 — Alternar vistas y actualizar datos sin perder contexto
@@ -38,7 +40,7 @@ Separar la vista del ciclo de consulta, conservar navegación/URL y agregar Actu
 
 ### TASK-002 — Alta y edición en modal accesible y animado
 
-**Estado:** IN_PROGRESS · **Criterios:** AC-003, AC-004 y parte de AC-007.
+**Estado:** DONE · **Criterios:** AC-003, AC-004 y parte de AC-007.
 
 Reutilizar el formulario para apertura local, cierre y guardado sobre el listado; adaptar los enlaces existentes para presentar el mismo modal y preservar el contexto de retorno.
 
@@ -47,11 +49,11 @@ Reutilizar el formulario para apertura local, cierre y guardado sobre el listado
 - **Termina cuando:** nuevo/editar usan el modal; guardados, validación, conflicto y reintento funcionan sin perder información; cierre y retorno, teclado/móvil/movimiento reducido comprobados. Las rutas directas existentes siguen siendo utilizables. Revisión y commit aceptados.
 - **Checks:** Vitest formulario/modal/listado/boundaries; Playwright local de apertura/cierre/foco, móvil, enlaces directos y guardados simulados; comprobaciones comunes, build y regresión afectada.
 - **WU-002:** modal, adaptación del formulario/rutas y pruebas; forecast actualizado 450–800 líneas/15 archivos, confianza media. La diferencia de archivos corresponde al harness local y adaptación de regresión ya autorizados; no cambia producto, arquitectura ni entrega. Unidad cohesionada aun si supera el umbral orientativo de 400. Commit propuesto feat: create and edit clients in an animated modal.
-- **Resultado:** candidato detenido, 15 archivos +443/-39 (482 líneas), digest raw paths+NUL+bytes+NUL cd04923eac971f33fb2bdc5a1aa0522ebd4a1fc11afb11cf53355776e5311855. RED/GREEN apertura/callback, guard de submit/cierre, foco tras conflicto y eliminación del disparador por filtro. Unit38/38 final y contratos/moves vigentes; browser modal3/3 focalizados y regresión vistas1/1, lint/typecheck/build aislados/diff-check PASS. Verification-only independiente COMPLETED/STOPPED: Vitest6/91 en 43,51s y Chrome modal3/3 en 57,3s PASS; repeticiones idénticas escaladas tras ENOENT de caché/denegación de localhost anteriores a interacción. Digest inicial/final igual y puerto3112 cerrado. No cambios a actions/backend. next-env/tsconfig preservados byte por byte. Falta Reviewer y commit. Browser local con componentes reales/HTTP simulado; no prueba Next RSC/Supabase live.
+- **Resultado:** WU-002 aceptada y commit fd810bda3b0f051d0f8a46edc26dfe24348da3f9, padre a46b9f5712a8e9cc784ba08601824cbe13d7a7bb, blobs/16 paths/índice vacío verificados. Candidato 15 archivos +443/-39 (482 líneas), digest raw paths+NUL+bytes+NUL cd04923eac971f33fb2bdc5a1aa0522ebd4a1fc11afb11cf53355776e5311855. RED/GREEN apertura/callback, guard de submit/cierre, foco tras conflicto y eliminación del disparador por filtro. Unit38/38 final y contratos/moves vigentes; browser modal3/3 focalizados y regresión vistas1/1, lint/typecheck/build aislados/diff-check PASS. Verification-only independiente COMPLETED/STOPPED: Vitest6/91 en 43,51s y Chrome modal3/3 en 57,3s PASS; repeticiones idénticas escaladas tras ENOENT de caché/denegación de localhost anteriores a interacción. Digest inicial/final igual y puerto3112 cerrado. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED sin hallazgos. No cambios a actions/backend. next-env/tsconfig preservados byte por byte y excluidos. Browser local con componentes reales/HTTP simulado; no prueba Next RSC/Supabase live.
 
 ### TASK-003 — Tarjetas directas y columnas reordenables
 
-**Estado:** TODO · **Criterios:** AC-005, AC-006 y cierre de AC-007.
+**Estado:** IN_PROGRESS · **Criterios:** AC-005, AC-006 y cierre de AC-007.
 
 Abrir el modal desde la tarjeta completa, retirar acciones actuales y separar apertura de arrastre. Agregar orden de columnas persistido localmente y alternativas por teclado/móvil.
 
@@ -59,11 +61,11 @@ Abrir el modal desde la tarjeta completa, retirar acciones actuales y separar ap
 - **Archivos permitidos:** src/components/clients/client-kanban.tsx, client-list.tsx y clients.module.css; nueva utilidad src/lib/clients/column-order.ts; tests/clients/kanban.test.tsx y nuevo column-order.test.ts; tests/e2e/client-feedback-readonly.spec.ts, kanban-live-flow.ts y prueba acotada de interacción kanban. Conservar procedimientos/guards remotos; no ejecutarlos con escrituras implícitas.
 - **Termina cuando:** clic y teclado abren detalle editable, los botones anteriores no aparecen y el drag nunca abre el modal; reordenar/persistir/restaurar funciona incluso ante almacenamiento inválido; orden personalizado rige teclado/móvil; movimientos/reintentos/conflictos y notificaciones conservados. Criterios integrados, revisión y commit aceptados.
 - **Checks:** Vitest kanban/orden/moves/form/list; Playwright local de clic vs drag, cancelación, teclado/móvil y persistencia; comprobaciones comunes, build y suite de regresión final. Cierre reutiliza evidencias aceptadas y revisa sólo integración no cubierta.
-- **WU-003:** tarjetas, orden y pruebas; 300–500 líneas/5–8 archivos, confianza media. Commit propuesto feat: reorder kanban columns and open client cards directly.
-- **Resultado:** pendiente.
+- **WU-003:** tarjetas, orden y pruebas; forecast actualizado 550–800 líneas/9–11 archivos, confianza media. La separación de gestos, almacenamiento adverso y controles móvil/teclado requiere prueba local propia; mismo producto, arquitectura, criterios y entrega, sin dependencias nuevas. Se conserva la unidad coherente dentro del forecast global aprobado. Commit propuesto feat: reorder kanban columns and open client cards directly.
+- **Resultado:** candidato detenido, 10 archivos +395/-71 (466 líneas), digest raw paths+NUL+bytes+NUL 028277fef89b3240e544a61585b0b29404531c4761e2a812c9139418f284f11c. Prueba conductual final14/14 en 9,40s, lint/typecheck aislado/diff-check PASS; next-env/tsconfig restaurados byte por byte y ningún proceso propio activo. Chrome local caso de tarjeta1/1 PASS (31,677s, ejecución59,052s): apertura, selección, modifiers, arrastre/cancelación, lock incierto y reintento, antes de ajustes finales de lint a lectura diferida/ref estable; los bytes finales tienen unit/lint/types. Casos de columnas/móvil/storage preparados sin ejecutar; cierre acepta la excepción humana expresa arriba, sin nueva batería completa ni build duplicado. No cambios a actions/backend/SQL/auth/dependencias. Falta revisión y commit locales.
 
 ## Próximo paso
 
-- **Tarea activa:** TASK-002, IN_PROGRESS, rama feature/crm-interaction en baseline a46b9f5712a8e9cc784ba08601824cbe13d7a7bb.
+- **Tarea activa:** TASK-003, IN_PROGRESS, rama feature/crm-interaction en baseline fd810bda3b0f051d0f8a46edc26dfe24348da3f9.
 - **Continuación:** COVERED_BY_CONTINUOUS_PLAN, PLAN-1.
-- **Acción siguiente:** entregar commit local WU-002. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos, sobre digest cd04923eac971f33fb2bdc5a1aa0522ebd4a1fc11afb11cf53355776e5311855 y comprobaciones independientes aceptadas. TASK-002 cubierta por CONTINUOUS PLAN-1; consultar sólo ante bloqueos, cambios materiales o intervención del usuario.
+- **Acción siguiente:** entregar commit local WU-003. Reviewer APPROVED/READY_TO_CONTINUE/STOPPED, sin hallazgos, sobre digest 028277fef89b3240e544a61585b0b29404531c4761e2a812c9139418f284f11c y evidencia final aceptada conforme excepción humana. Cierre integrado AC-001 a AC-007 aprobado reutilizando WU-001/WU-002. No hay más tareas ni publicación autorizada.

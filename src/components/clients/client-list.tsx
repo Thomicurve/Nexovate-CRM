@@ -25,8 +25,8 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const [pending, startTransition] = useTransition();
   const [seenPending, setSeenPending] = useState(false);
   const refreshGuard = useRef(false);
-  const modalOpener = useRef<HTMLAnchorElement | null>(null), currentView = useRef<HTMLAnchorElement | null>(null);
-  const savedFocus = useRef<{ opener: HTMLAnchorElement | null; snapshot: ListResult } | null>(null);
+  const modalOpener = useRef<HTMLElement | null>(null), currentView = useRef<HTMLAnchorElement | null>(null);
+  const savedFocus = useRef<{ opener: HTMLElement | null; snapshot: ListResult } | null>(null);
   useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
   useEffect(() => {
     const saved = savedFocus.current;
@@ -81,8 +81,11 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   function openModal(event: MouseEvent<HTMLAnchorElement>, client?: Client) {
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
     event.preventDefault();
+    beginModal(client, event.currentTarget);
+  }
+  function beginModal(client: Client | undefined, opener: HTMLElement) {
     if (locked || refreshing || pending || modal) return;
-    modalOpener.current = event.currentTarget;
+    modalOpener.current = opener;
     setModal({ client, requestId: crypto.randomUUID(), initialContact: client ? "" : utcToLocal(new Date().toISOString()) });
   }
   const clearPath = listPath({ ...applied, name: "", statuses: [], from: "", until: "", page: 1 });
@@ -155,7 +158,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
     {result.kind === "out_of_range" && <div className={styles.listState}><p>Esta página ya no tiene resultados.</p>
       <div className={styles.actions}><Link href={listPath(applied, 1)}>Volver a la primera página</Link></div></div>}
     <div key={view} className={styles.viewContent}>
-    {result.kind === "found" && applied.view === "kanban" && <ClientKanban rows={result.rows} returnTo={returnTo} onLock={setLocked} />}
+    {result.kind === "found" && applied.view === "kanban" && <ClientKanban rows={result.rows} returnTo={returnTo} onLock={setLocked} onEdit={beginModal} />}
     {result.kind === "found" && (result.rows.length ? applied.view === "tabla" && <div className={styles.tableSurface}>
       <table className={styles.table} aria-label="Clientes"><thead><tr>
         <th scope="col">Cliente</th><th scope="col" className={styles.optionalColumn}>Rubro</th><th scope="col">Estado</th>
