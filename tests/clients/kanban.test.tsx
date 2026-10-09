@@ -30,7 +30,7 @@ describe("shared client views and approved board controls", () => {
         this.dataset.client ? new DOMRect(110 + index * 250, 250, 210, 212) : new DOMRect(120 + Math.max(0, index) * 250, 390, 150, 44);
     });
   });
-  it("defaults to six Kanban columns and links to the same filtered, paged dataset in table", () => {
+  it("defaults to six Kanban columns and selects the same filtered, paged dataset in table", async () => {
     const parsed = parseFilters({ nombre: "Confirmado", estado: ["Contactado", "Cerrado"], pagina: "2" });
     if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 51 }} />);
@@ -38,12 +38,13 @@ describe("shared client views and approved board controls", () => {
     const board = screen.getByRole("region", { name: "Kanban de clientes" });
     expect(within(board).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(order);
     for (const state of STATUSES) expect(within(board).getByRole("heading", { name: state })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("href",
-      "/clientes?nombre=Confirmado&estado=Contactado&estado=Cerrado&pagina=2&vista=tabla");
-    expect(screen.getByRole("link", { name: "Kanban" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("radio", { name: "Kanban" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("button", { name: "Arrastrar cliente Confirmado" })).toHaveAttribute("aria-describedby");
     expect(screen.queryByRole("link", { name: "Editar Confirmado" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Abrir Confirmado" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Tabla" }));
+    expect(window.location.pathname + window.location.search).toBe("/clientes?nombre=Confirmado&estado=Contactado&estado=Cerrado&pagina=2&vista=tabla");
+    expect(screen.getByRole("table")).toHaveTextContent("Confirmado");
   });
   it("mobile visible-state control selects any column without changing shared filters or writing", async () => {
     const user = userEvent.setup(), parsed = parseFilters({ estado: "Contactado" });
@@ -54,7 +55,8 @@ describe("shared client views and approved board controls", () => {
     expect(within(visible).getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(order);
     await user.selectOptions(visible, "Interesado");
     expect(visible).toHaveValue("Interesado");
-    expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("href", "/clientes?estado=Contactado&vista=tabla");
+    await user.click(screen.getByRole("radio", { name: "Tabla" }));
+    expect(window.location.pathname + window.location.search).toBe("/clientes?estado=Contactado&vista=tabla");
     expect(f.move).not.toHaveBeenCalled();
   });
   it("opens full editable row data by card click or keyboard and returns focus to that card", async () => {
@@ -116,7 +118,7 @@ describe("shared client views and approved board controls", () => {
     expect(f.move.mock.calls[0][0]).toMatchObject({ clientId, version: 2, from: "Contactado", to: "Interesado" });
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Cargando" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("radio", { name: "Tabla" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeDisabled();
     act(() => {
       window.history.replaceState(null, "", "/clientes?vista=tabla");
@@ -158,7 +160,7 @@ describe("shared client views and approved board controls", () => {
     await user.keyboard("[Enter][Enter]");
     expect(f.move).not.toHaveBeenCalled();
     expect(screen.queryByText("Estado actualizado")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tabla" })).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByRole("radio", { name: "Tabla" })).toBeEnabled();
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
   });
   it("starts pointer dragging from the card body and clears destination on outside/cancel", async () => {

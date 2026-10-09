@@ -9,14 +9,14 @@ import { confirmed } from "../clients/fixture";
 // Real React components, local HTTP fixtures and History API. No Next RSC/provider claim.
 let server: ViteDevServer;
 test.beforeAll(async () => {
-  server = await createServer({ configFile: false, server: { host: "127.0.0.1", port: 3111, strictPort: true },
+  server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-view-refresh", optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core", "recharts", "use-sync-external-store/shim/with-selector"] }, server: { host: "127.0.0.1", port: 3111, strictPort: true },
     resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-crm-boundaries", enforce: "pre",
       resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
-        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link(props){return createElement('a',props)}";
-        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Business writes disabled in local harness')} export const saveClient=moveClient;";
+        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Business writes disabled in local harness')} export const saveClient=moveClient; export const deleteClient=moveClient;";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
         if (!["/clientes", "/dashboard"].includes(new URL(request.url!, "http://local.invalid").pathname)) return next();
@@ -51,10 +51,10 @@ test("local components preserve filtered page through view/history/reload and bo
   await page.goto("/clientes?nombre=Confirmado&estado=Contactado&pagina=2&vista=tabla");
   await expect(page.getByRole("table", { name: "Clientes" })).toContainText("Confirmado");
   const baseline = reads.length;
-  await page.getByRole("link", { name: "Kanban", exact: true }).focus();
+  await page.getByRole("radio", { name: "Kanban", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "Kanban de clientes" })).toBeVisible();
-  await page.getByRole("link", { name: "Tabla", exact: true }).click();
+  await page.getByRole("radio", { name: "Tabla", exact: true }).click();
   await page.goBack(); await expect(page.getByRole("region", { name: "Kanban de clientes" })).toBeVisible();
   await page.goForward(); await expect(page.getByRole("table")).toContainText("Confirmado");
   expect(reads).toHaveLength(baseline);
@@ -67,7 +67,7 @@ test("local components preserve filtered page through view/history/reload and bo
     const url = page.url(), text = await contents.textContent(), before = reads.length;
     fail = true;
     await page.getByRole("button", { name: "Actualizar", exact: true }).click();
-    await expect(page.getByRole("status")).toHaveText(/Actualizando/);
+    await expect(page.getByRole("dialog", { name: "Cargando" })).toBeVisible();
     const updating = page.getByRole("button", { name: "Actualizando…", exact: true });
     await expect(updating).toBeDisabled();
     await updating.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
@@ -93,7 +93,7 @@ test("local components preserve filtered page through view/history/reload and bo
   expect(reads).toHaveLength(beforeFilter + 1);
   await page.setViewportSize({ width: 390, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("link", { name: "Kanban", exact: true }).click();
+  await page.getByRole("radio", { name: "Kanban", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Estado visible" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(writes).toEqual([]);

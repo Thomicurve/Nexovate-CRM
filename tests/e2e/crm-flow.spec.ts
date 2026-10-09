@@ -48,9 +48,9 @@ for (const accountIndex of [0, 1]) {
         await expect(main.getByRole("region", { name: "Kanban de clientes" })).toBeVisible();
         await expect(main.getByText("Todavía no hay clientes.", { exact: true })).toBeVisible();
         await expect(main.getByRole("alert")).toHaveCount(0);
-        await activate(main.getByRole("link", { name: "Tabla", exact: true }));
+        await main.getByRole("radio", { name: "Kanban", exact: true }).focus(); await page.keyboard.press("ArrowRight");
         await expect(page).toHaveURL(/vista=tabla/);
-        await expect(main.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(main.getByRole("radio", { name: "Tabla", exact: true })).toHaveAttribute("aria-checked", "true");
         await activate(main.getByRole("button", { name: "Filtros de clientes" }));
         const filters = main.getByRole("region", { name: "Filtrar clientes" });
         await expect(filters.getByLabel("Nombre", { exact: true })).toBeFocused();
@@ -63,9 +63,9 @@ for (const accountIndex of [0, 1]) {
         await expect(main.getByText("No hay clientes que coincidan con los filtros.", { exact: true })).toBeVisible();
         const applied = new URL(page.url()).searchParams;
         expect(applied.get("nombre")).toBe("WU011-readonly"); expect(applied.getAll("estado")).toEqual(["Interesado"]);
-        await activate(main.getByRole("link", { name: "Kanban", exact: true }));
+        await main.getByRole("radio", { name: "Tabla", exact: true }).focus(); await page.keyboard.press("ArrowLeft");
         await expect(page).not.toHaveURL(/vista=tabla/);
-        await expect(main.getByRole("link", { name: "Kanban", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(main.getByRole("radio", { name: "Kanban", exact: true })).toHaveAttribute("aria-checked", "true");
         expect(new URL(page.url()).searchParams.get("nombre")).toBe("WU011-readonly");
         expect(new URL(page.url()).searchParams.getAll("estado")).toEqual(["Interesado"]);
         const returnParams = [...new URL(page.url()).searchParams].filter(([, value]) => value).sort();

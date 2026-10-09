@@ -25,7 +25,7 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
       surface.close(); releaseScroll();
       queueMicrotask(() => {
         if (opener?.isConnected) opener.focus();
-        else document.querySelector<HTMLElement>('[aria-label="Vista de clientes"] [aria-current]')?.focus();
+        else document.querySelector<HTMLElement>('[aria-label="Vista de clientes"] [aria-checked="true"]')?.focus();
       });
     };
   }, []);

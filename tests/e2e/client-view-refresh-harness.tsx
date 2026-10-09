@@ -5,6 +5,7 @@ import { Dashboard } from "../../src/components/dashboard/dashboard";
 import { listPath, type ListResult } from "../../src/lib/clients/filters";
 import type { MetricsResult } from "../../src/lib/metrics/model";
 import "../../src/app/globals.css";
+import { GlobalLoading } from "../../src/components/ui/global-loading";
 
 declare global { interface Window { crmHarness: { refresh: () => Promise<void>; push: (path: string) => void } } }
 window.crmHarness = { refresh: async () => {}, push: (path) => window.location.assign(path) };
@@ -15,9 +16,9 @@ function Harness({ initial }: { initial: ListResult | MetricsResult }) {
     setResult(await response.json());
   }, []);
   useEffect(() => { window.crmHarness.refresh = read; }, [read]);
-  if (window.location.pathname === "/dashboard") return <Dashboard result={result as MetricsResult} params={Object.fromEntries(new URLSearchParams(window.location.search))} />;
+  if (window.location.pathname === "/dashboard") return <><Dashboard result={result as MetricsResult} params={Object.fromEntries(new URLSearchParams(window.location.search))} /><GlobalLoading /></>;
   const clients = result as ListResult;
-  return <ClientList key={clients.kind === "invalid" ? "invalid" : listPath({ ...clients.filters, view: "kanban" })} result={clients} />;
+  return <><ClientList key={clients.kind === "invalid" ? "invalid" : listPath({ ...clients.filters, view: "kanban" })} result={clients} /><GlobalLoading /></>;
 }
 async function boot() {
   const response = await fetch(`/__fixture${window.location.search}`);

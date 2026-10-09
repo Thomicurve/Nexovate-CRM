@@ -9,15 +9,15 @@ import { confirmed } from "../clients/fixture";
 let server: ViteDevServer;
 test.beforeAll(async () => {
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-crm-modal",
-    optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom/client", "@dnd-kit/core"] },
+    optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core"] },
     server: { host: "127.0.0.1", port: 3112, strictPort: true },
     resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-modal-boundaries", enforce: "pre",
       resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
-        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,...props}){return createElement('a',props)}";
-        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Moves disabled')} export async function saveClient(_state,form){return (await fetch('/__save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(form))})).json()}";
+        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Moves disabled')} export const deleteClient=moveClient; export async function saveClient(_state,form){return (await fetch('/__save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(form))})).json()}";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
         if (!new URL(request.url!, "http://local.invalid").pathname.startsWith("/clientes")) return next();
@@ -154,6 +154,6 @@ test("editing a row out of the active filter restores focus to a stable list con
   await dialog.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("No hay clientes que coincidan con los filtros.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Tabla", exact: true })).toBeFocused();
+  await expect(page.getByRole("radio", { name: "Tabla", exact: true })).toBeFocused();
   expect(data.forbidden).toEqual([]);
 });

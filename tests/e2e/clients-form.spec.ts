@@ -65,7 +65,8 @@ test("real SSR form geometry, timezone and server validation without client writ
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const strip = board.locator("[data-column]").first().locator("..");
     expect(await strip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-    await expect(page.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("href", "/clientes?nombre=UIcheck&vista=tabla");
+    await page.getByRole("radio", { name: "Tabla", exact: true }).click();
+    await expect(page).toHaveURL(/\/clientes\?nombre=UIcheck&vista=tabla$/);
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto("/clientes/nuevo");

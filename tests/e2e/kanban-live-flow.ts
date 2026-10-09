@@ -119,7 +119,7 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     const lostIntent = actionIntents.at(-1)!;
     const ledger = await read(`SELECT response FROM crm_private.client_requests WHERE actor_id='${actorIds[0]}'::uuid AND request_id='${lostIntent.requestId}'::uuid`);
     expect(ledger).toHaveLength(1); expect(ledger[0].response).toEqual(committed);
-    await expect(page.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("radio", { name: "Tabla", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Intentar de nuevo" }).click();
     await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); assertTracked();
     expect(actionIntents.at(-1)).toEqual(actionIntents.at(-2));
@@ -158,10 +158,10 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     // Both views retain the same contact/status/name query; selector is display-only on mobile.
     const params = new URLSearchParams({ nombre: prefix, estado: "Cerrado", desde: "2026-10-07", hasta: "2026-10-07" });
     await page.goto(`/clientes?${params}`); await expect(board.locator("[data-client]")).toHaveCount(1);
-    await page.getByRole("link", { name: "Tabla", exact: true }).click();
+    await page.getByRole("radio", { name: "Tabla", exact: true }).click();
     await expect(page.getByRole("table", { name: "Clientes" }).locator("tbody tr")).toHaveCount(1);
     expect(new URL(page.url()).searchParams.get("estado")).toBe("Cerrado");
-    await page.getByRole("link", { name: "Kanban", exact: true }).click();
+    await page.getByRole("radio", { name: "Kanban", exact: true }).click();
     await page.setViewportSize({ width: 390, height: 960 });
     await page.getByRole("combobox", { name: "Estado visible" }).selectOption("Cerrado");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

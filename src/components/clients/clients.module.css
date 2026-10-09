@@ -78,9 +78,8 @@
 .destination { min-width: 0; gap: 24px; }
 .destination > h1 { font-size: 26px; }
 .viewBar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.viewSwitch { display: flex; gap: 8px; }
-.viewSwitch a { display: inline-flex; min-height: 44px; align-items: center; padding: 10px 16px; border: 1px solid #243750; border-radius: 6px; text-decoration: none; }
-.viewSwitch a[aria-current] { background: var(--action); border-color: var(--action); color: white; }
+.viewSwitch { border: 1px solid #243750; }
+.viewSwitch [role="radio"] { min-height: 44px; outline-color: #a6caff !important; }
 .viewContent { min-width: 0; animation: revealView 160ms ease-out; }
 @keyframes revealView { from { opacity: 0.65; } to { opacity: 1; } }
 .filterLock { display: contents; border: 0; padding: 0; margin: 0; }

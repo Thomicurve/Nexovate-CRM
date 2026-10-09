@@ -59,10 +59,10 @@ test("views use the loaded page, history and reload; filters still request data"
   await page.goto("/clientes?vista=tabla");
   const rows = await page.getByRole("table", { name: "Clientes" }).locator("tbody tr").count();
   const baseline = checks.reads.length;
-  await page.getByRole("link", { name: "Kanban", exact: true }).click();
+  await page.getByRole("radio", { name: "Kanban", exact: true }).click();
   await expect(page.getByRole("region", { name: "Kanban de clientes" })).toBeVisible();
   await expect(page).toHaveURL(/\/clientes$/);
-  await page.getByRole("link", { name: "Tabla", exact: true }).click();
+  await page.getByRole("radio", { name: "Tabla", exact: true }).click();
   await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(rows);
   await page.goBack();
   await expect(page.getByRole("region", { name: "Kanban de clientes" })).toBeVisible();
@@ -70,7 +70,7 @@ test("views use the loaded page, history and reload; filters still request data"
   await expect(page.getByRole("table", { name: "Clientes" })).toBeVisible();
   expect(checks.reads).toHaveLength(baseline);
   await page.reload();
-  await expect(page.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("radio", { name: "Tabla", exact: true })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Filtros de clientes" }).click();
   await page.getByLabel("Nombre").fill("TASK001-no-match");
   await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
@@ -78,7 +78,7 @@ test("views use the loaded page, history and reload; filters still request data"
   await expect(page.getByText("No hay clientes que coincidan con los filtros.")).toBeVisible();
   expect(new URL(page.url()).searchParams.get("vista")).toBe("tabla");
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.getByRole("link", { name: "Kanban", exact: true }).click();
+  await page.getByRole("radio", { name: "Kanban", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Estado visible" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(checks.blocked).toEqual([]);

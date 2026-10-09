@@ -12,14 +12,14 @@ const storageKey = "crm:kanban-column-order:v1";
 let server: ViteDevServer;
 test.beforeAll(async () => {
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-crm-modal",
-    optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom/client", "@dnd-kit/core"] },
+    optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core"] },
     server: { host: "127.0.0.1", port: 3113, strictPort: true }, resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-modal-boundaries", enforce: "pre",
       resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
-        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,...props}){return createElement('a',props)}";
-        if (id.endsWith("/clientes/actions")) return "export const moveClient=async intent=>(await fetch('/__move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(intent)})).json(); export async function saveClient(){throw new Error('Saves disabled in kanban harness')}";
+        if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/actions")) return "export const moveClient=async intent=>(await fetch('/__move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(intent)})).json(); export async function saveClient(){throw new Error('Saves disabled in kanban harness')} export const deleteClient=saveClient;";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
         if (new URL(request.url!, "http://local.invalid").pathname !== "/clientes") return next();
@@ -99,8 +99,8 @@ test("cards open editable data while drag, cancel, selection and modifiers prese
   await expect(page.getByRole("dialog")).toHaveCount(0);
   data.uncertain(true); await handle.focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Space");
   await expect(page.getByRole("alert")).toHaveText("Movimiento sin confirmar");
-  await expect(open).toHaveAttribute("aria-disabled", "true"); await expect(page.getByRole("button", { name: "Arrastrar columna Contactado" })).toBeDisabled();
-  await expect(page.getByRole("link", { name: "Tabla", exact: true })).toHaveAttribute("aria-disabled", "true");
+  await expect(open).toBeDisabled(); await expect(page.getByRole("button", { name: "Arrastrar columna Contactado" })).toBeDisabled();
+  await expect(page.getByRole("radio", { name: "Tabla", exact: true })).toBeDisabled();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   data.uncertain(false); await page.getByRole("button", { name: "Intentar de nuevo" }).click();
   await expect(open).toHaveAttribute("aria-disabled", "false"); expect(data.moves[2]).toEqual(data.moves[1]);

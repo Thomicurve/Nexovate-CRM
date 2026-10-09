@@ -12,6 +12,7 @@ import { ClientKanban } from "./client-kanban";
 import { ClientModal } from "./client-modal";
 import { usePendingLoading } from "@/components/ui/global-loading";
 import { useLoadingFormNavigation } from "@/components/ui/loading-navigation";
+import RubberSegment from "@/components/ui/RubberSegment";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: CLIENT_TIME_ZONE,
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -29,13 +30,13 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const navigateFilters = useLoadingFormNavigation();
   const [seenPending, setSeenPending] = useState(false);
   const refreshGuard = useRef(false);
-  const modalOpener = useRef<HTMLElement | null>(null), currentView = useRef<HTMLAnchorElement | null>(null);
+  const modalOpener = useRef<HTMLElement | null>(null), currentView = useRef<HTMLDivElement | null>(null);
   const savedFocus = useRef<{ opener: HTMLElement | null; snapshot: ListResult } | null>(null);
   useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
   useEffect(() => {
     const saved = savedFocus.current;
     if (!saved || modal || pending || result === saved.snapshot) return;
-    if (!saved.opener?.isConnected && document.activeElement === document.body) currentView.current?.focus();
+    if (!saved.opener?.isConnected && document.activeElement === document.body) currentView.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
     savedFocus.current = null;
   }, [result, modal, pending]);
   if (incoming !== seenIncoming && !locked) {
@@ -126,15 +127,14 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
 
   return <section className={styles.destination} aria-busy={refreshing || pending}>
     <h1>Clientes</h1><div className={styles.viewBar} onClick={(event) => { if (locked) event.preventDefault(); }}>
-      <nav className={styles.viewSwitch} aria-label="Vista de clientes">{[["kanban", "Kanban"], ["tabla", "Tabla"]].map(([view, label]) =>
-        <a key={view} ref={applied.view === view ? currentView : undefined} href={listPath({ ...applied, view: view as "kanban" | "tabla" })} aria-current={applied.view === view ? "page" : undefined}
-          aria-disabled={locked || refreshing} tabIndex={locked || refreshing ? -1 : undefined} onClick={(event) => {
-            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
-            event.preventDefault();
-            if (locked || refreshing || applied.view === view) return;
-            window.history.pushState(null, "", event.currentTarget.href);
-            setView(view as "kanban" | "tabla");
-          }}>{label}</a>)}</nav>
+      <div ref={currentView}><RubberSegment aria-label="Vista de clientes" className={styles.viewSwitch}
+        items={[{ value: "kanban", label: "Kanban" }, { value: "tabla", label: "Tabla" }]} value={applied.view}
+        disabled={locked || refreshing || pending || Boolean(modal)} size="lg" radius={8}
+        trackColor="#121f35" thumbColor="#386bc0" textColor="#a6b7ce" activeTextColor="#e6edf8"
+        onChange={(next) => {
+          if (locked || refreshing || pending || modal || next === applied.view || next !== "kanban" && next !== "tabla") return;
+          window.history.pushState(null, "", listPath({ ...applied, view: next })); setView(next);
+        }} /></div>
       <div className={styles.actions}><button type="button" className={styles.refreshButton} disabled={locked || refreshing || pending} onClick={refresh}>
         {refreshing || pending ? "Actualizando…" : "Actualizar"}</button><Link prefetch={false} aria-disabled={locked} tabIndex={locked ? -1 : undefined}
         href={`/clientes/nuevo?returnTo=${encodeURIComponent(returnTo)}`} onClick={(event) => openModal(event)}>Nuevo cliente</Link></div></div>

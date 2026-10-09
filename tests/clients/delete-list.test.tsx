@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => f }));
 // Hold duration is tested with the real component separately; here verify list reconciliation.
 vi.mock("@/components/ui/HoldButton", () => ({ default: ({ onHold }: { onHold: () => void }) => <button onClick={onHold}>Confirmar intención</button> }));
 it("closes only confirmed deletion and recovers last-result page preserving filters/view", async () => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
   let settle!: (value: { kind: "success" }) => void;

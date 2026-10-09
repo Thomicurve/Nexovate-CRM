@@ -45,7 +45,13 @@ describe("client table and filter accessibility", () => {
     const paged = { ...filters, page: 2 };
     render(<ClientList result={{ kind: "found", filters: paged, rows: [confirmed], count: 101 }} />);
     await user.type(screen.getByLabelText("Nombre"), " draft");
-    await user.click(screen.getByRole("link", { name: "Kanban" }));
+    const selector = screen.getByRole("radiogroup", { name: "Vista de clientes" });
+    const tableChoice = within(selector).getByRole("radio", { name: "Tabla" });
+    expect(tableChoice).toHaveAttribute("aria-checked", "true");
+    tableChoice.focus();
+    await user.keyboard("[ArrowLeft]");
+    expect(within(selector).getByRole("radio", { name: "Kanban" })).toHaveFocus();
+    expect(within(selector).getByRole("radio", { name: "Kanban" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("region", { name: "Kanban de clientes" })).toBeInTheDocument();
     expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado draft");
     expect(window.location.search).toContain("pagina=2");
@@ -54,6 +60,11 @@ describe("client table and filter accessibility", () => {
     expect(screen.getByRole("table", { name: "Clientes" })).toHaveTextContent("Confirmado");
     expect(screen.getByText("Página 2 · 101 clientes")).toBeVisible();
     expect(navigation.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Cargando" })).not.toBeInTheDocument();
+    tableChoice.focus(); await user.keyboard("[Home]");
+    expect(screen.getByRole("radio", { name: "Kanban" })).toHaveAttribute("aria-checked", "true");
+    await user.keyboard("[End]");
+    expect(tableChoice).toHaveAttribute("aria-checked", "true"); expect(tableChoice).toHaveFocus();
   });
   it.each([false, true])("recovers focus after a saved row disappears, preserving a later user focus (%s)", async (keepFocus) => {
     const user = userEvent.setup();
@@ -68,7 +79,7 @@ describe("client table and filter accessibility", () => {
     const chosen = screen.getByRole("link", { name: "Nuevo cliente" });
     if (keepFocus) chosen.focus();
     rerender(<ClientList result={{ ...result, rows: [], count: 0 }} />);
-    expect(keepFocus ? chosen : screen.getByRole("link", { name: "Tabla" })).toHaveFocus();
+    expect(keepFocus ? chosen : screen.getByRole("radio", { name: "Tabla" })).toHaveFocus();
   });
   it("refreshes once, retains the last page on failure and supports recovery with the same filters", async () => {
     navigation.refresh.mockClear();
@@ -78,6 +89,8 @@ describe("client table and filter accessibility", () => {
     const result = { kind: "found" as const, filters, rows: [confirmed], count: 1 };
     const { rerender } = render(<ClientList result={result} />);
     await user.click(screen.getByRole("button", { name: "Actualizar" }));
+    expect(screen.getByRole("radio", { name: "Kanban" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Tabla" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: /Actualizando/ }));
     expect(navigation.refresh).toHaveBeenCalledOnce();
     rerender(<ClientList result={{ kind: "unavailable", filters }} />);
