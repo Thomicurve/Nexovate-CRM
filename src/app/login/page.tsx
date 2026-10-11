@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { inspectAccess } from "@/lib/auth/access";
 import { connectionMessage } from "@/lib/auth/login";
 import { LoginForm } from "@/components/auth/login-form";
+import { LoginPanel } from "@/components/auth/login-panel";
 import { login, logout } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,13 +17,7 @@ export default async function LoginPage({ searchParams }: {
   const { reason } = await searchParams;
   const denied = kind === "denied" || reason === "denied";
   return (
-    <main className="login-screen">
-      <section className="login-panel" aria-labelledby="login-title">
-        <p className="brand">Nexovate</p>
-        <div className="login-heading">
-          <h1 id="login-title">Ingresar al CRM</h1>
-          <p className="secondary">Seguimiento de clientes de ambos socios.</p>
-        </div>
+    <LoginPanel>
         {denied ? <>
           <p role="alert" className="auth-error">Esta cuenta no tiene acceso al CRM.</p>
           <p className="secondary">Ingresá con una de las dos cuentas autorizadas.</p>
@@ -32,8 +27,6 @@ export default async function LoginPage({ searchParams }: {
             <p role="alert" className="auth-error">{connectionMessage}</p>}
           <LoginForm action={login} expired={reason === "expired"} />
         </>}
-        <p className="login-footer secondary">Acceso privado para las dos cuentas autorizadas.</p>
-      </section>
-    </main>
+    </LoginPanel>
   );
 }

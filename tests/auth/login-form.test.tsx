@@ -9,6 +9,22 @@ import type { LoginState } from "@/lib/auth/login";
 const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
 
 describe("approved accessible login states", () => {
+  it("toggles password visibility without losing its value or submitting", async () => {
+    const action = vi.fn();
+    render(<LoginForm action={action} />);
+    const user = userEvent.setup(), password = screen.getByLabelText("Contraseña");
+    await user.type(password, "synthetic secret");
+    const toggle = screen.getByRole("button", { name: "Mostrar contraseña" });
+    expect(toggle).toHaveAttribute("aria-controls", "password");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.focus(); await user.keyboard("{Enter}");
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("synthetic secret");
+    expect(screen.getByRole("button", { name: "Ocultar contraseña" })).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard(" ");
+    expect(password).toHaveAttribute("type", "password");
+    expect(action).not.toHaveBeenCalled();
+  });
   it("labels inputs, preserves password privacy and supports keyboard submission", async () => {
     const action = vi.fn().mockResolvedValue({ status: "error", message: "Error de prueba" });
     render(<LoginForm action={action} />);
