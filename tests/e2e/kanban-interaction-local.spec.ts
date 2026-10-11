@@ -25,7 +25,7 @@ test.beforeAll(async () => {
         if (new URL(request.url!, "http://local.invalid").pathname !== "/clientes") return next();
         try {
           response.setHeader("Content-Type", "text/html");
-          response.end(await vite.transformIndexHtml(request.url!, '<html lang="es"><body style="padding:24px"><div id="root"></div><script type="module" src="/tests/e2e/client-modal-harness.tsx"></script></body></html>'));
+          response.end(await vite.transformIndexHtml(request.url!, '<html lang="es"><head><style>body{padding:16px}@media(min-width:769px){body{padding:40px}}</style></head><body><div id="root"></div><script type="module" src="/tests/e2e/client-modal-harness.tsx"></script></body></html>'));
         } catch (error) { next(error); }
       }); },
     }] }); await server.listen();
@@ -86,9 +86,9 @@ test("cards open editable data while drag, cancel, selection and modifiers prese
   }
   expect(data.reads).toHaveLength(baseline); await expect(page).toHaveURL(url);
   await open.click({ modifiers: ["Control"] }); await open.click({ button: "middle" });
-  await card(page).getByText("Rubro: Sin informar").evaluate((element) => { const range = document.createRange(); range.selectNodeContents(element); getSelection()!.addRange(range); });
+  await card(page).getByText(/^Contacto:/).evaluate((element) => { const range = document.createRange(); range.selectNodeContents(element); getSelection()!.addRange(range); });
   await open.click(); await expect(page.getByRole("dialog")).toHaveCount(0); await page.evaluate(() => getSelection()!.removeAllRanges());
-  const body = await card(page).getByText("Rubro: Sin informar").boundingBox(), target = await page.locator('[data-column="Interesado"]').boundingBox();
+  const body = await card(page).getByText(/^Contacto:/).boundingBox(), target = await page.locator('[data-column="Interesado"]').boundingBox();
   await pointerDrag(page, { x: body!.x + 20, y: body!.y + 5 }, { x: target!.x + 100, y: target!.y + 100 }, true);
   await expect(page.getByRole("dialog")).toHaveCount(0); expect(data.moves).toHaveLength(0);
   const handle = card(page).getByRole("button", { name: "Arrastrar cliente Confirmado" });
@@ -132,9 +132,9 @@ test("mobile touch scrolling does not open cards; menu and keyboard destinations
   test.setTimeout(90_000); const data = await fixtures(page); await page.setViewportSize({ width: 390, height: 700 });
   const order = ["Cerrado", "Contactado", "Sin respuesta", "Interesado", "Reunión agendada", "Respuesta negativa"];
   await page.addInitScript(({ key, order }) => localStorage.setItem(key, JSON.stringify(order)), { key: storageKey, order });
-  await page.goto("/clientes"); const visible = page.getByRole("combobox", { name: "Estado visible" });
-  await expect(visible).toHaveValue("Cerrado"); expect(await visible.locator("option").evaluateAll((options) => options.map((option) => option.getAttribute("value")))).toEqual(order);
-  await visible.selectOption("Contactado"); const open = card(page).getByRole("button", { name: "Abrir Confirmado" });
+  await page.goto("/clientes"); const visible = page.getByRole("radiogroup", { name: "Estado visible" });
+  await expect(visible.getByRole("radio", { name: /^Contactado,/ })).toHaveAttribute("aria-checked", "true"); expect(await visible.getByRole("radio").evaluateAll((options) => options.map((option) => option.getAttribute("aria-label")?.split(",")[0]))).toEqual(order);
+  await visible.getByRole("radio", { name: /^Contactado,/ }).click(); const open = card(page).getByRole("button", { name: "Abrir Confirmado" });
   await open.tap(); await expect(page.getByRole("dialog")).toBeVisible(); await page.getByRole("button", { name: "Cancelar" }).tap(); await expect(page.getByRole("dialog")).toHaveCount(0);
   await open.scrollIntoViewIfNeeded(); const box = await open.boundingBox(), before = await page.evaluate(() => scrollY);
   const cdp = await context.newCDPSession(page);
@@ -144,14 +144,15 @@ test("mobile touch scrolling does not open cards; menu and keyboard destinations
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before); await expect(page.getByRole("dialog")).toHaveCount(0); expect(data.moves).toEqual([]);
   const handle = card(page).getByRole("button", { name: "Arrastrar cliente Confirmado" }); await handle.focus();
   expect((await handle.boundingBox())!.width).toBe(44); expect((await handle.boundingBox())!.height).toBe(44);
-  await page.keyboard.press("Space"); await page.keyboard.press("ArrowRight"); await expect(visible).toHaveValue("Sin respuesta"); await page.keyboard.press("Space");
+  await page.keyboard.press("Space"); await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("ArrowRight"); await expect(visible.getByRole("radio", { name: /^Sin respuesta,/ })).toHaveAttribute("aria-checked", "true"); await page.keyboard.press("Space");
   await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); expect(data.moves[0].to).toBe("Sin respuesta");
-  const menu = page.getByRole("button", { name: "Ordenar columna Sin respuesta" }); await menu.click();
-  await page.getByRole("button", { name: "Mover a la izquierda", exact: true }).click();
+  const menu = page.getByRole("button", { name: "Ordenar etapa Sin respuesta" }); await menu.click();
+  await page.getByRole("menuitem", { name: "Mover a la izquierda", exact: true }).click();
   const next = ["Cerrado", "Sin respuesta", "Contactado", "Interesado", "Reunión agendada", "Respuesta negativa"];
-  expect(await visible.locator("option").evaluateAll((options) => options.map((option) => option.getAttribute("value")))).toEqual(next);
+  expect(await visible.getByRole("radio").evaluateAll((options) => options.map((option) => option.getAttribute("aria-label")?.split(",")[0]))).toEqual(next);
   expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), storageKey)).toEqual(next);
-  await menu.click(); await page.getByRole("button", { name: "Mover a la derecha", exact: true }).focus(); await page.keyboard.press("Escape"); await expect(menu).toBeFocused();
+  await menu.click(); await page.getByRole("menuitem", { name: "Mover a la derecha", exact: true }).focus(); await page.keyboard.press("Escape"); await expect(menu).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(data.forbidden).toEqual([]); expect(data.errors).toEqual([]);
 });
@@ -163,4 +164,85 @@ test("denied browser storage falls back to six columns and still permits orderin
   await page.getByRole("button", { name: "Arrastrar columna Interesado" }).focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Space");
   await expect(headings(page)).toHaveText(["Interesado", "Contactado", ...KANBAN_STATUSES.slice(2)]);
   expect(data.moves).toEqual([]); expect(data.forbidden).toEqual([]); expect(data.errors).toEqual([]);
+});
+
+test("stage selection, card variants and desktop menus remain usable across supported widths", async ({ page }) => {
+  test.setTimeout(90_000);
+  const longName = "Cliente " + "Extenso".repeat(18), company = "Empresa " + "Larga".repeat(25);
+  const writes: string[] = [], rows = [
+    { ...confirmed, name: longName, status: "Interesado", company, rubro: "Servicios", email: "persona@example.com",
+      phone: "123456789", notes: "Seguimiento", meeting_at: "2026-10-08T15:30:00Z" },
+    { ...confirmed, id: "33333333-3333-4333-8333-333333333333", name: "Sin opcionales", status: "Interesado" },
+    { ...confirmed, id: "44444444-4444-4444-8444-444444444444", name: "Sin reunión", status: "Sin respuesta", company: "Otra empresa" },
+  ];
+  await page.route("**/*", async (route) => {
+    const request = route.request(), url = new URL(request.url());
+    if (request.method() !== "GET") { writes.push(url.href); await route.abort(); return; }
+    if (url.pathname !== "/__fixture") return route.continue();
+    const parsed = parseFilters({}); if (!parsed.ok) throw new Error("Invalid local filters");
+    await route.fulfill({ json: { kind: "found", filters: parsed.filters, rows, count: rows.length } });
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 900 }); await page.goto("/clientes");
+  const stages = page.getByRole("radiogroup", { name: "Estado visible" });
+  await expect(stages.getByRole("radio", { name: "Interesado, 2 clientes" })).toHaveAttribute("aria-checked", "true");
+  const measuredCounts: number[] = [];
+  for (const width of [390, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    if (width <= 768) {
+      await expect(stages.getByRole("radio")).toHaveCount(6);
+      const options = await stages.getByRole("radio").evaluateAll((buttons) => buttons.map((button) => {
+        const box = button.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }));
+      expect(new Set(options.map((box) => box.y)).size).toBe(3);
+      expect(options.every((box) => box.height >= 64 && box.x >= 0 && box.x + box.width <= width)).toBe(true);
+    }
+    const full = card(page).getByRole("button", { name: `Abrir ${longName}` });
+    await expect(full.getByText(company, { exact: true })).toBeVisible();
+    await expect(full.getByText(/^Contacto:/)).toBeVisible(); await expect(full.getByText(/^Reunión:/)).toBeVisible();
+    for (const label of ["Servicios", "Notas", "Email", "Teléfono"]) await expect(full.getByText(label, { exact: true })).toBeVisible();
+    const incomplete = page.getByRole("button", { name: "Abrir Sin opcionales" });
+    await expect(incomplete.getByText(/Sin empresa|Sin informar|Reunión:|Notas|Email|Teléfono/)).toHaveCount(0);
+    const menu = page.getByRole("button", { name: "Ordenar etapa Interesado" });
+    await menu.scrollIntoViewIfNeeded(); await menu.focus();
+    const tooltip = menu.getByText("Ordenar etapa", { exact: true });
+    await expect(tooltip).toBeVisible();
+    const rect = await menu.boundingBox(); expect(rect!.width).toBe(44); expect(rect!.height).toBe(44);
+    await page.keyboard.press("Enter"); await expect(page.getByRole("menu", { name: "Ordenar etapa Interesado" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Mover a la izquierda" })).toBeFocused();
+    await page.keyboard.press("ArrowDown"); await expect(page.getByRole("menuitem", { name: "Mover a la derecha" })).toBeFocused();
+    await page.keyboard.press("Escape"); await expect(menu).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const board = page.locator('[aria-label="Etapas de clientes"]');
+    if (width > 768) {
+      await expect(headings(page)).toHaveCount(6);
+      const bounds = await board.evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth }));
+      expect(bounds.scroll >= bounds.width).toBe(true);
+      await expect(page.getByText(/Desplazá el tablero horizontalmente/)).toBeVisible();
+    }
+    measuredCounts.push(await full.getByText(/^Contacto:/).count());
+  }
+  expect(measuredCounts).toEqual([1, 1, 1, 1, 1]);
+  const contrasts = await page.locator("[data-column] header span[aria-label]").evaluateAll((counts) => {
+    const rgb = (value: string) => {
+      const channels = (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+      return value.startsWith("color(") ? channels : channels.map((channel) => channel / 255);
+    };
+    const luminance = (value: string) => rgb(value).map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+    return counts.map((count) => {
+      const style = getComputedStyle(count), a = luminance(style.color), b = luminance(style.backgroundColor);
+      return { stage: count.closest<HTMLElement>("[data-column]")!.dataset.column, ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+    });
+  });
+  expect(contrasts).toHaveLength(6); expect(contrasts.every(({ ratio }) => ratio >= 4.5)).toBe(true);
+  console.log("Measured stage count contrasts:", contrasts.map(({ stage, ratio }) => `${stage}=${ratio.toFixed(2)}`).join("; "));
+  await page.setViewportSize({ width: 390, height: 900 });
+  await stages.getByRole("radio", { name: "Cerrado, 0 clientes" }).click();
+  await expect(page.locator('[data-column="Cerrado"]')).toBeVisible();
+  await expect(page.locator('[data-column="Cerrado"]')).toContainText("Sin clientes en esta etapa de la página.");
+  const emptyHeight = (await page.locator('[data-column="Cerrado"]').boundingBox())!.height;
+  expect(emptyHeight).toBeLessThan(300);
+  await page.reload(); await expect(stages.getByRole("radio", { name: "Cerrado, 0 clientes" })).toHaveAttribute("aria-checked", "true");
+  expect(writes).toEqual([]);
 });

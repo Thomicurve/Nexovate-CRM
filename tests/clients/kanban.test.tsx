@@ -20,6 +20,7 @@ describe("shared client views and approved board controls", () => {
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     vi.restoreAllMocks(); vi.clearAllMocks(); f.move.mockReset();
     localStorage.clear();
+    vi.stubGlobal("matchMedia", (media: string) => ({ matches: media.includes(": reduce"), media, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
     window.getSelection()?.removeAllRanges();
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
     Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
@@ -29,6 +30,47 @@ describe("shared client views and approved board controls", () => {
       return this.dataset.column ? new DOMRect(100 + index * 250, 200, 230, 677) :
         this.dataset.client ? new DOMRect(110 + index * 250, 250, 210, 212) : new DOMRect(120 + Math.max(0, index) * 250, 390, 150, 44);
     });
+  });
+  it("offers column ordering by keyboard menu with focus return and no business writes", async () => {
+    const user = userEvent.setup(), parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
+    render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 1 }} />);
+    const trigger = screen.getByRole("button", { name: "Ordenar etapa Interesado" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+    trigger.focus(); await user.keyboard("[Enter]");
+    const menu = screen.getByRole("menu", { name: "Ordenar etapa Interesado" });
+    const left = within(menu).getByRole("menuitem", { name: "Mover a la izquierda" });
+    expect(left).toHaveFocus();
+    await user.keyboard("[Escape]"); expect(trigger).toHaveFocus();
+    await user.click(trigger); await user.click(screen.getByRole("menuitem", { name: "Mover a la izquierda" }));
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["Interesado", "Contactado", ...order.slice(2)]);
+    expect(trigger).toHaveFocus(); expect(f.move).not.toHaveBeenCalled(); expect(f.refresh).not.toHaveBeenCalled();
+  });
+  it("starts with populated results and remembers an explicitly selected empty stage", async () => {
+    const user = userEvent.setup(), parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
+    const result = { kind: "found" as const, filters: parsed.filters, rows: [{ ...confirmed, status: "Interesado" as const }], count: 1 };
+    const first = render(<ClientList result={result} />);
+    const stage = (name: string) => within(screen.getByRole("radiogroup", { name: "Estado visible" })).getByRole("radio", { name: new RegExp(`^${name},`) });
+    await waitFor(() => expect(stage("Interesado")).toHaveAttribute("aria-checked", "true"));
+    stage("Interesado").focus(); await user.keyboard("[ArrowDown]");
+    expect(stage("Cerrado")).toHaveFocus(); expect(stage("Cerrado")).toHaveAttribute("aria-checked", "true");
+    expect(localStorage.getItem("crm:kanban-mobile-stage:v1")).toBe(JSON.stringify("Cerrado"));
+    first.unmount(); render(<ClientList result={result} />);
+    await waitFor(() => expect(stage("Cerrado")).toHaveAttribute("aria-checked", "true"));
+    expect(f.move).not.toHaveBeenCalled(); expect(f.refresh).not.toHaveBeenCalled();
+  });
+  it("shows only real optional card metadata with explicit contact and meeting labels", () => {
+    const parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
+    render(<ClientList result={{ kind: "found", filters: parsed.filters, count: 2, rows: [confirmed,
+      { ...confirmed, id: "33333333-3333-4333-8333-333333333333", name: "Completo", company: "Empresa extensa",
+        rubro: "Servicios", meeting_at: "2026-10-08T15:30:00Z", notes: "Datos", email: "persona@example.com", phone: "123456" }] }} />);
+    const empty = screen.getByRole("button", { name: "Abrir Confirmado" });
+    expect(within(empty).getByText(/^Contacto:/)).toBeInTheDocument();
+    expect(within(empty).queryByText(/Sin empresa|Sin informar|Reunión:|Notas|Email|Teléfono/)).not.toBeInTheDocument();
+    expect(within(empty).queryByText("Contactado")).not.toBeInTheDocument();
+    const full = screen.getByRole("button", { name: "Abrir Completo" });
+    for (const value of ["Empresa extensa", "Servicios", "Notas", "Email", "Teléfono"]) expect(within(full).getByText(value)).toBeInTheDocument();
+    expect(within(full).getByText(/^Reunión:/)).toBeInTheDocument();
+    expect(within(full).queryByRole("link")).not.toBeInTheDocument();
   });
   it("defaults to six Kanban columns and selects the same filtered, paged dataset in table", async () => {
     const parsed = parseFilters({ nombre: "Confirmado", estado: ["Contactado", "Cerrado"], pagina: "2" });
@@ -50,11 +92,11 @@ describe("shared client views and approved board controls", () => {
     const user = userEvent.setup(), parsed = parseFilters({ estado: "Contactado" });
     if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 1 }} />);
-    const visible = screen.getByRole("combobox", { name: "Estado visible" });
-    expect(within(visible).getAllByRole("option")).toHaveLength(6);
-    expect(within(visible).getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(order);
-    await user.selectOptions(visible, "Interesado");
-    expect(visible).toHaveValue("Interesado");
+    const visible = screen.getByRole("radiogroup", { name: "Estado visible" });
+    expect(within(visible).getAllByRole("radio")).toHaveLength(6);
+    expect(within(visible).getAllByRole("radio").map((option) => option.getAttribute("aria-label")?.split(",")[0])).toEqual(order);
+    await user.click(within(visible).getByRole("radio", { name: /^Interesado,/ }));
+    expect(within(visible).getByRole("radio", { name: /^Interesado,/ })).toHaveAttribute("aria-checked", "true");
     await user.click(screen.getByRole("radio", { name: "Tabla" }));
     expect(window.location.pathname + window.location.search).toBe("/clientes?estado=Contactado&vista=tabla");
     expect(f.move).not.toHaveBeenCalled();
@@ -81,7 +123,7 @@ describe("shared client views and approved board controls", () => {
     const expected = ["Contactado", "Cerrado", "Interesado", "Reunión agendada", "Sin respuesta", "Respuesta negativa"];
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(expected);
     expect(JSON.parse(localStorage.getItem("crm:kanban-column-order:v1")!)).toEqual(expected);
-    expect(within(screen.getByRole("combobox", { name: "Estado visible" })).getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(expected);
+    expect(within(screen.getByRole("radiogroup", { name: "Estado visible" })).getAllByRole("radio").map((option) => option.getAttribute("aria-label")?.split(",")[0])).toEqual(expected);
     f.move.mockResolvedValue({ kind: "error", retry: true, message: "Intención conservada" });
     screen.getByRole("button", { name: "Arrastrar cliente Confirmado" }).focus();
     await user.keyboard("[Space][ArrowRight][Space]");
@@ -97,7 +139,7 @@ describe("shared client views and approved board controls", () => {
     const parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 1 }} />);
     const card = screen.getByRole("button", { name: "Abrir Confirmado" }), range = document.createRange();
-    range.selectNodeContents(screen.getByText("Rubro: Sin informar")); window.getSelection()!.addRange(range);
+    range.selectNodeContents(screen.getByText(/^Contacto:/)); window.getSelection()!.addRange(range);
     expect(window.getSelection()!.isCollapsed).toBe(false);
     fireEvent.pointerDown(card, { button: 0 }); window.getSelection()!.removeAllRanges(); fireEvent.click(card);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -168,7 +210,7 @@ describe("shared client views and approved board controls", () => {
     vi.stubGlobal("PointerEvent", TestPointerEvent);
     const parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 1 }} />);
-    fireEvent.pointerDown(screen.getByText("Rubro: Sin informar"), { clientX: 150, clientY: 290, button: 0, isPrimary: true });
+    fireEvent.pointerDown(screen.getByText(/^Contacto:/), { clientX: 150, clientY: 290, button: 0, isPrimary: true });
     fireEvent.pointerMove(document, { clientX: 410, clientY: 300 });
     fireEvent.pointerMove(document, { clientX: 411, clientY: 300 });
     await waitFor(() => expect(screen.getByText("Soltar aquí")).toBeVisible());
@@ -184,17 +226,17 @@ describe("shared client views and approved board controls", () => {
     vi.stubGlobal("PointerEvent", TestPointerEvent);
     const parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 1 }} />);
-    for (const target of [screen.getByRole("button", { name: "Abrir Confirmado" }), screen.getByText("Rubro: Sin informar")]) {
+    for (const target of [screen.getByRole("button", { name: "Abrir Confirmado" }), screen.getByText(/^Contacto:/)]) {
       fireEvent.pointerDown(target, { clientX: 150, clientY: 300, button: 0, shiftKey: true });
       fireEvent.pointerMove(document, { clientX: 410, clientY: 300 }); fireEvent.pointerUp(document);
       expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
     }
-    const range = document.createRange(); range.selectNodeContents(screen.getByText("Rubro: Sin informar"));
+    const range = document.createRange(); range.selectNodeContents(screen.getByText(/^Contacto:/));
     window.getSelection()!.addRange(range);
-    fireEvent.pointerDown(screen.getByText("Rubro: Sin informar"), { clientX: 150, clientY: 300, button: 0 });
+    fireEvent.pointerDown(screen.getByText(/^Contacto:/), { clientX: 150, clientY: 300, button: 0 });
     fireEvent.pointerMove(document, { clientX: 410, clientY: 300 }); fireEvent.pointerUp(document);
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
-    expect(window.getSelection()!.toString()).toBe("Rubro: Sin informar");
+    expect(window.getSelection()!.toString()).toMatch(/^Contacto:/);
     window.getSelection()!.removeAllRanges(); vi.unstubAllGlobals();
     expect(f.move).not.toHaveBeenCalled();
   });

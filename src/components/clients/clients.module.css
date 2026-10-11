@@ -90,40 +90,56 @@
 .filterLock { display: contents; border: 0; padding: 0; margin: 0; }
 .filterLock > .desktopFilter:first-child { width: 300px; min-width: 0; }
 .kanbanRegion { min-width: 0; display: grid; gap: 16px; }
-.board { display: grid; grid-template-columns: repeat(6, minmax(230px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; min-width: 0; }
-.column { min-height: 677px; background: #0b1426; padding: 14px 8px; border: 2px solid transparent; border-radius: 6px; display: flex; flex-direction: column; gap: 14px; }
-.dropTarget { background: #173251; border-color: #a6caff; }
-.dropCue { color: #a6caff; font-size: 13px; font-weight: 600; }
-.column header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.column header > div { display: grid; gap: 6px; }
-.column h2 { font-size: 16px; font-weight: 500; }
-.column header span { color: var(--secondary); font-size: 12px; }
-.card { background: var(--surface); border: 2px solid #243750; border-radius: 8px; position: relative; overflow-wrap: anywhere; }
-.cardContent { display: grid; gap: 8px; padding: 16px; border-radius: 6px; cursor: pointer; }
-.card h3 { padding-right: 32px; }
+.board { display: grid; grid-template-columns: repeat(6, minmax(216px, 1fr)); gap: 12px; overflow-x: auto; padding: 4px 4px 12px; min-width: 0; }
+.board:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.column { min-height: 480px; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--stage-accent); border-radius: 8px; display: flex; flex-direction: column; gap: 12px; padding: 0 10px 12px; }
+.dropTarget { background: var(--elevated); border-color: var(--focus); }
+.dropCue { color: var(--focus); font-size: 13px; font-weight: 600; }
+.column header { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 72px; padding: 10px 0; }
+.stageHeading { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.column h2 { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.stageDot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--stage-accent); }
+.stageCount { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; padding: 2px 6px; justify-self: start; border-radius: 6px; background: color-mix(in srgb, var(--stage-accent) 15%, var(--surface)); color: var(--stage-accent); font-size: 13px; font-weight: 600; }
+.card { background: var(--elevated); border: 1px solid #304463; border-top: 2px solid var(--stage-accent); border-radius: 12px; position: relative; overflow-wrap: anywhere; }
+.cardContent { display: grid; gap: 12px; padding: 16px; border-radius: 12px; cursor: pointer; }
+.card h3 { padding-right: 32px; font-size: 17px; font-weight: 600; }
 .cardContent:focus-visible, .dragHandle:focus-visible, .columnMenuButton:focus-visible, .columnMenu button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.dragHandle { width: 44px; height: 44px; flex-shrink: 0; border: 0; background: transparent; color: var(--secondary); border-radius: 6px; cursor: grab; touch-action: none; font: inherit; font-size: 22px; }
+.dragHandle { width: 44px; height: 44px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--secondary); border-radius: 6px; cursor: grab; touch-action: none; }
 .card > .dragHandle { position: absolute; top: 4px; right: 4px; }
 .dragHandle:active { cursor: grabbing; }
-.columnMenuButton { display: none; }
-.columnMenu { display: grid; gap: 8px; padding: 12px; border: 1px solid #597697; border-radius: 6px; background: var(--surface); }
-.columnMenu button { min-height: 44px; padding: 8px 12px; border: 1px solid #597697; border-radius: 5px; background: transparent; color: var(--foreground); font: inherit; text-align: left; }
-.columnMenu button:disabled, .dragHandle:disabled { opacity: 0.65; cursor: default; }
-.dragging { border-color: #a6caff; box-shadow: 0 8px 24px #0005; cursor: grabbing; }
-.card h3 { font-size: 17px; font-weight: 500; }
+.columnMenuButton { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid var(--field-border); border-radius: 6px; background: transparent; color: var(--foreground); }
+.columnMenuButton:hover { background: var(--elevated); }
+.orderTooltip { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; width: max-content; padding: 6px 8px; background: var(--elevated); color: var(--foreground); border: 1px solid var(--field-border); border-radius: 6px; font-size: 13px; pointer-events: none; }
+.columnMenuButton:hover .orderTooltip, .columnMenuButton:focus-visible .orderTooltip { display: block; }
+.columnMenu { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--elevated); }
+.columnMenu button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 14px; text-align: left; }
+.columnMenu button:disabled, .dragHandle:disabled, .columnMenuButton:disabled { opacity: 0.65; cursor: default; }
+.dragging { border-color: var(--focus); box-shadow: 0 8px 24px #0005; cursor: grabbing; }
 .card p { font-size: 13px; }
 .card .cardCompany { color: var(--secondary); font-size: 14px; }
+.cardIndustry { color: var(--secondary); }
+.cardMetadata { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cardMetadata span { padding: 6px 8px; border-radius: 6px; background: var(--surface); color: var(--secondary); font-size: 13px; }
+.columnEmpty { padding: 12px 2px; color: var(--secondary); font-size: 14px; }
 .visibleState { display: none; }
+.stageSelector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stageSelector button { min-height: 64px; min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; border: 1px solid var(--field-border); border-left: 3px solid var(--stage-accent); border-radius: 8px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 16px; overflow-wrap: anywhere; }
+.stageSelector button[aria-checked="true"] { background: var(--elevated); border-color: var(--stage-accent); }
+.stageSelector button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.stageSelector button:disabled { opacity: 0.65; cursor: default; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .destination [aria-disabled="true"] { cursor: default; opacity: 0.65; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .viewContent { animation: none; } }
 @media (max-width: 768px) {
-  .visibleState { display: grid; }
-  .board { display: block; overflow: visible; padding-bottom: 0; }
-  .column { display: none; min-height: 677px; padding: 14px; gap: 16px; }
+  .visibleState { display: grid; gap: 12px; }
+  .boardScrollHint { display: none; }
+  .board { display: block; overflow: visible; padding: 4px 0; }
+  .column { display: none; min-height: 0; padding: 0 12px 12px; gap: 16px; }
+  .column header { min-height: 60px; }
+  .stageHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .column h2 { font-size: 16px; }
   .visibleColumn { display: flex; }
   .columnHandle { display: none; }
-  .columnMenuButton { display: block; width: 44px; height: 44px; border: 1px solid #597697; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; font-size: 22px; }
   .viewBar { align-items: stretch; flex-direction: column; }
   .viewBar > .actions a { width: 100%; }
 }

@@ -9,7 +9,7 @@
 - **User's mode choice:** «Aprobar y ejecutar en CONTINUOUS (recomendado)» (2026-10-11).
 - **Plan approval:** APPROVE_CURRENT_PLAN.
 - **Approval reference:** respuesta explícita del usuario al checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5, seis etapas, TASK-001 inicial, rama y commits locales; questionItemId `[request_user_input_async,call_W2gUQJpdBfP1epAleUvSbO2p,0]`. Autoriza ejecución secuencial de TASK-001–006, pruebas/revisión/commits y reutilización de los dos logos originales según PLAN-5. Sin push/PR/merge/deploy.
-- **Estado de recuperación local:** CHECKING TASK-002; verificación y revisión independientes COMPLETED/STOPPED, candidato aceptado y Delivery pendiente. TASK-001 aceptada y entregada, next-env/tsconfig preservados. Registro mínimo local por memoria temporalmente no disponible.
+- **Estado de recuperación local:** CHECKING TASK-003; writer y revisión STOPPED, candidato aprobado y Delivery pendiente. TASK-001 y TASK-002 aceptadas y entregadas, baselines preservados. Registro mínimo local por memoria temporalmente no disponible.
 - **First task:** TASK-001 tras aprobación y preparación de rama.
 - **TDD and checks:** ON para comportamiento, según convención explícita en `specs/crm-interaction/task.md`. Vitest: RED observado antes de implementar y GREEN después. Cambios puramente visuales necesitan comprobación estructural, contraste/reflujo y revisión nativa, sin tests que repitan CSS. Playwright con fixtures aisladas para flujos integrados; capturas, vídeo y trace desactivados.
 - **Delivery propuesta:** una rama `codex/crm-ui-ux-vercel`, preparada por Implementer Delivery después de aprobación, y un commit local por WU aceptada. Sin worktrees ni ramas por tarea. Push, PR, merge y deploy requieren autoridad separada. Sólo Implementer escribe aplicación; Orchestrator mantiene estos dos documentos. Diseñador trabaja únicamente en Pencil.
@@ -47,7 +47,7 @@ Definir tokens Vercel/Geist con paleta Nexovate y sus logos originales, primitiv
 
 ### TASK-002 — Clientes: encontrar y leer
 
-**Status:** IN_PROGRESS · **Criteria:** AC-003, AC-004, AC-011, AC-014
+**Status:** DONE · **Criteria:** AC-003, AC-004, AC-011, AC-014
 
 Migrar listado/tabla, búsqueda visible de nombre/empresa, panel contextual de filtros, etiquetas removibles, ordenación estable y detalle móvil de lectura. Mantener navegación/retorno coherentes.
 
@@ -60,9 +60,11 @@ Migrar listado/tabla, búsqueda visible de nombre/empresa, panel contextual de f
 
 **Review reference:** review_002 APPROVED/READY_TO_CONTINUE/STOPPED para el digest13 anterior, sin hallazgos. Contraste real de fuentes y baselines Git, incluidos objetos packed, confirma casos previos preservados y cobertura AC-003/004/011/014 aplicable. Reutiliza recibos independientes; sin checks ejecutados por Reviewer. Candidato aceptado para commit local WU-002.
 
+**Commit reference:** Delivery COMPLETED/STOPPED, `6465c3be3dc8410044c993ee9163a12a95526d1e`, padre `755e7c5e20d844a62beb0049d8cf9544187290fc`. 14 paths explícitos (13 aplicación/pruebas + task.md), 526+/144−. Blobs normalizados, bytes locales, índice vacío y baselines verificados; sin publicación. TASK-002 DONE habilita TASK-003 por CONTINUOUS vigente.
+
 ### TASK-003 — Kanban claro y operable
 
-**Status:** TODO · **Criteria:** AC-005, AC-011, AC-013, AC-014, AC-015
+**Status:** IN_PROGRESS · **Criteria:** AC-005, AC-011, AC-013, AC-014, AC-015
 
 Migrar columnas/tarjetas y sus menús, distinguir las seis etapas con acentos de color y nombres visibles (encabezado/contador/selector móvil), reforzar jerarquía de tarjetas (nombre/empresa/rubro/metadatos) según referencia y sólo campos existentes, permitir reordenación por clic/teclado en escritorio, recordar etapa móvil, vacíos compactos y contadores sobre resultados actuales. Paleta general, dashboard y diseño de columnas aceptados se conservan.
 
@@ -71,7 +73,9 @@ Migrar columnas/tarjetas y sus menús, distinguir las seis etapas con acentos de
 - **Done when:** tablero usable sin arrastrar; preferencia/fallback deterministas, cambio de etapa visible y scroll contenido; movimiento conserva protecciones; tarjetas jerarquizadas y contadores corresponden al dataset cargado, incluidas variantes largas/incompletas, sin inventar metadatos ni reducir objetivos/foco/lectura en móvil.
 - **Checks:** RED/GREEN de preferencias/alternativas, pruebas existentes DnD, lint/typecheck, recorrido con teclado y reflujo móvil/escritorio.
 - **Work units:** WU-003, tablero + preferencias + pruebas, 350–650 líneas/4–7 archivos, confianza media; commit `feat(kanban): improve navigation empty states and reorder controls`.
-- **Result reference:** pendiente.
+- **Result reference:** Designer revalidó DESIGN_APPROVED/STOPPED mediante lectura nativa sin editar; P1rBO/Zvio5 y variantes vDek2 sin recortes. Implementer IMPLEMENTED/STOPPED sobre HEAD `6465c3be3dc8410044c993ee9163a12a95526d1e`: candidato7 SHA256 `3a9866e8d15aa2c14a991518ed9a435f2919e11d083ca1c873f2f6f37972e0c4`, +299/−69. RED preferencia ausente/menú ausente; GREEN80/6, KanbanE2E5/21,3s y vista/refrescoE2E3/25,5s, lint/tsc PASS Node22/npm10. Tests conservan touch y destino exacto esperando activación observable del sensor. DOM390/640/768/1024/1440, controles44, variantes/vacíos/persistencia/foco comprobados; contraste contador mínimo5,16:1. Sin fronteras/deps/contracts nuevos; build previo reutilizado. Baselines intactos, review/commit pendientes. Detectado cambio ajeno en .gitignore que ignora la skill instalada; excluido de candidato y entregas.
+
+**Review reference:** review_002 WU-003 APPROVED/READY_TO_CONTINUE/STOPPED para digest7 vigente, sin hallazgos ni gaps bloqueantes. Blobs reales/diff confirman invariantes comerciales y pruebas previas preservados; sin nuevo riesgo alto que exija verificación adicional. Fuentes compatibles con DESIGN-10 y AC-005/011/013/014/015, reutilizando recibos writer. .gitignore ajeno SHA256 `D50FA6D29618A1B9151CA9EAEB4BCFC124F8A88CA8834369A3AC1C59021DDE5D`, preservado y excluido.
 
 ### TASK-004 — Formularios, conflictos y eliminación
 
@@ -114,8 +118,8 @@ Completar feedback de operaciones, esperas y recuperación, límites error/not-f
 
 ## Próximo paso
 
-- **Next task:** TASK-002; IN_PROGRESS, única tarea seleccionada.
+- **Next task:** TASK-003; IN_PROGRESS, única tarea seleccionada.
 - **Continuation:** COVERED_BY_CONTINUOUS_PLAN.
-- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; TASK-001 comprobada, revisada y entregada mediante commit local verificado. Próxima TASK-002.
-- **Consumed by:** dispatch único Implementer TASK-002; permiso continuo válido únicamente para PLAN-5.
+- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; TASK-001 y TASK-002 comprobadas, revisadas y entregadas mediante commits locales verificados. Próxima TASK-003.
+- **Consumed by:** revalidación nativa y dispatch único Implementer TASK-003; permiso continuo válido únicamente para PLAN-5.
 - **Recuperación local:** estos documentos y el documento nativo mantienen el alcance. Memoria atribuida al agente temporalmente no disponible: registro de identidad runtime no confirmado; no intentar guardar sin registro del host.

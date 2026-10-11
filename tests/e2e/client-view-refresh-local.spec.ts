@@ -94,7 +94,7 @@ test("local components preserve filtered page through view/history/reload and bo
   await page.setViewportSize({ width: 390, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("radio", { name: "Kanban", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Estado visible" })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Estado visible" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(writes).toEqual([]);
 });
