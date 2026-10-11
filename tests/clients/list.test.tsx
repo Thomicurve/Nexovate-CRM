@@ -19,19 +19,55 @@ const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
 describe("client table and filter accessibility", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    vi.stubGlobal("matchMedia", (media: string) => ({ matches: media.includes(": reduce"), media, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
     Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
+  });
+  it("keeps the list visible beside filters and preserves applied search when cancelling", async () => {
+    const user = userEvent.setup();
+    render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
+    expect(screen.getByRole("searchbox", { name: "Buscar por nombre o empresa" })).toHaveValue("Confirmado");
+    await user.click(screen.getByRole("button", { name: /Filtros de clientes/ }));
+    expect(screen.getByRole("region", { name: "Filtrar clientes" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Clientes" })).toHaveTextContent("Confirmado");
+    expect(screen.getByLabelText("Contacto desde")).toHaveValue("2026-10-07");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByRole("searchbox")).toHaveValue("Confirmado");
+    expect(screen.getByRole("button", { name: /Filtros de clientes/ })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Quitar estado Contactado" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&desde=2026-10-07&vista=tabla");
+  });
+  it("reads the full client without editing and restores the row opener on Escape", async () => {
+    const user = userEvent.setup();
+    render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, company: "Empresa", rubro: "Servicios", notes: "Notas completas", email: "persona@example.com", phone: "+54 (11) 1234-5678" }], count: 1 }} />);
+    const opener = screen.getByRole("button", { name: "Ver Confirmado" });
+    opener.focus(); await user.keyboard("{Enter}");
+    const dialog = screen.getByRole("dialog", { name: "Confirmado" });
+    expect(within(dialog).getByText("Empresa", { selector: "dd" })).toBeVisible(); expect(within(dialog).getByText("Servicios")).toBeVisible();
+    expect(within(dialog).getByText("Notas completas")).toBeVisible();
+    expect(within(dialog).getByRole("link", { name: "Enviar correo a Confirmado" })).toHaveAttribute("href", "mailto:persona%40example.com");
+    expect(within(dialog).getByRole("link", { name: "Llamar a Confirmado" })).toHaveAttribute("href", "tel:+541112345678");
+    expect(within(dialog).getByRole("link", { name: "Editar Confirmado" })).toHaveAttribute("href", expect.stringContaining("returnTo="));
+    expect(screen.queryByRole("dialog", { name: "Editar cliente" })).toBeNull();
+    await user.keyboard("{Escape}"); expect(screen.queryByRole("dialog")).toBeNull(); expect(opener).toHaveFocus();
+  });
+  it("does not offer contact actions for absent or invalid data", async () => {
+    render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, email: "bad\n@example.com", phone: "javascript:123456" }], count: 1 }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Ver Confirmado" }));
+    const dialog = screen.getByRole("dialog", { name: "Confirmado" });
+    expect(within(dialog).queryByRole("link", { name: /Enviar correo|Llamar/ })).toBeNull();
+    expect(within(dialog).getByText("Sin cita")).toBeVisible();
   });
   it("opens create and edit locally with full row data and returns to the same opener", async () => {
     const user = userEvent.setup();
     render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, notes: "Notas completas", email: "persona@example.com" }], count: 1 }} />);
-    const opener = screen.getByRole("link", { name: "Editar Confirmado" });
+    const opener = screen.getByRole("button", { name: "Ver Confirmado" });
     await user.click(opener);
+    await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
     expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeInTheDocument();
     expect(screen.getByLabelText("Notas")).toHaveValue("Notas completas");
     expect(screen.getByLabelText("Email")).toHaveValue("persona@example.com");
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    await screen.findByRole("link", { name: "Editar Confirmado" });
+    await screen.findByRole("button", { name: "Ver Confirmado" });
     await new Promise((resolve) => setTimeout(resolve, 230));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
@@ -44,7 +80,7 @@ describe("client table and filter accessibility", () => {
     const user = userEvent.setup();
     const paged = { ...filters, page: 2 };
     render(<ClientList result={{ kind: "found", filters: paged, rows: [confirmed], count: 101 }} />);
-    await user.type(screen.getByLabelText("Nombre"), " draft");
+    await user.type(screen.getByLabelText("Buscar por nombre o empresa"), " draft");
     const selector = screen.getByRole("radiogroup", { name: "Vista de clientes" });
     const tableChoice = within(selector).getByRole("radio", { name: "Tabla" });
     expect(tableChoice).toHaveAttribute("aria-checked", "true");
@@ -53,7 +89,7 @@ describe("client table and filter accessibility", () => {
     expect(within(selector).getByRole("radio", { name: "Kanban" })).toHaveFocus();
     expect(within(selector).getByRole("radio", { name: "Kanban" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("region", { name: "Kanban de clientes" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado draft");
+    expect(screen.getByLabelText("Buscar por nombre o empresa")).toHaveValue("Confirmado draft");
     expect(window.location.search).toContain("pagina=2");
     expect(window.location.search).not.toContain("vista=tabla");
     act(() => { window.history.replaceState(null, "", "/clientes?pagina=2&vista=tabla"); window.dispatchEvent(new PopStateEvent("popstate")); });
@@ -71,6 +107,7 @@ describe("client table and filter accessibility", () => {
     const result = { kind: "found" as const, filters, rows: [confirmed], count: 1 };
     vi.mocked(saveClient).mockResolvedValueOnce({ status: "success", client: { ...confirmed, name: "Fuera del filtro" } });
     const { rerender } = render(<ClientList result={result} />);
+    await user.click(screen.getByRole("button", { name: "Ver Confirmado" }));
     await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await new Promise((resolve) => setTimeout(resolve, 230));
@@ -102,7 +139,7 @@ describe("client table and filter accessibility", () => {
     rerender(<ClientList result={{ ...result, rows: [{ ...confirmed, name: "Actualizado" }] }} />);
     expect(screen.getByRole("table")).toHaveTextContent("Actualizado");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado");
+    expect(screen.getByLabelText("Buscar por nombre o empresa")).toHaveValue("Confirmado");
   });
   it("recovers when a refresh transition finishes without receiving a server snapshot", async () => {
     let finish!: () => void;
@@ -118,11 +155,11 @@ describe("client table and filter accessibility", () => {
   it("renders agreed columns, BA dates, optional fields and filter-preserving edit/create links", () => {
     render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
     const table = screen.getByRole("table", { name: "Clientes" });
-    for (const name of ["Cliente", "Rubro", "Estado", "Contacto", "Cita", "Acciones"]) {
-      expect(within(table).getByRole("columnheader", { name })).toBeInTheDocument();
+    for (const name of ["Nombre", "Empresa", "Estado", "Contacto", "Reunión", "Acciones"]) {
+      expect(within(table).getByRole("columnheader", { name: new RegExp(name) })).toBeInTheDocument();
     }
     expect(within(table).getByText("07/10/2026 12:30")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Editar Confirmado" })).toHaveAttribute("href", expect.stringContaining("returnTo=%2Fclientes%3Fnombre%3DConfirmado"));
+    expect(screen.getByRole("button", { name: "Ver Confirmado" })).toBeEnabled();
     expect(screen.getByRole("link", { name: "Nuevo cliente" })).toHaveAttribute("href", expect.stringContaining("returnTo="));
   });
   it("allows keyboard-open filters, multiple states, apply/clear/cancel without losing applied URL", async () => {
@@ -131,12 +168,12 @@ describe("client table and filter accessibility", () => {
     await user.click(screen.getByRole("button", { name: /Filtros/ }));
     expect(screen.getByRole("region", { name: "Filtrar clientes" })).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Confirmado");
-    expect(screen.getByLabelText("Nombre")).toHaveFocus();
+    expect(screen.getByLabelText("Buscar por nombre o empresa")).toHaveValue("Confirmado");
+    expect(screen.getByRole("heading", { name: "Filtrar clientes" })).toHaveFocus();
     await user.click(screen.getByRole("checkbox", { name: "Cerrado" }));
     expect(screen.getByRole("checkbox", { name: "Contactado" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Cerrado" })).toBeChecked();
-    expect(screen.getByRole("link", { name: "Limpiar filtros" })).toHaveAttribute("href", "/clientes?vista=tabla");
+    expect(within(screen.getByRole("region", { name: "Filtrar clientes" })).getByRole("link", { name: "Limpiar filtros" })).toHaveAttribute("href", "/clientes?vista=tabla");
     expect(screen.getByRole("button", { name: "Aplicar filtros" })).toHaveAttribute("type", "submit");
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("region", { name: "Filtrar clientes" })).not.toBeInTheDocument();
@@ -160,7 +197,13 @@ describe("client table and filter accessibility", () => {
     const navigation = screen.getByRole("navigation", { name: "Páginas de clientes" });
     expect(within(navigation).getByRole("link", { name: "Anterior" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&vista=tabla");
     expect(within(navigation).getByRole("link", { name: "Siguiente" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&pagina=3&vista=tabla");
-    expect(screen.getByRole("link", { name: "Editar Confirmado" })).toHaveAttribute("href", expect.stringContaining("pagina%3D2"));
+    expect(screen.getByRole("button", { name: "Ver Confirmado" })).toBeEnabled();
+  });
+  it("recovers an empty later page without suggesting an empty CRM or creating a first client", () => {
+    render(<ClientList result={{ kind: "found", filters: { ...filters, page: 3 }, rows: [], count: 1 }} />);
+    expect(screen.getByRole("link", { name: "Volver a la primera página" })).toHaveAttribute("href", "/clientes?nombre=Confirmado&estado=Contactado&desde=2026-10-07&vista=tabla");
+    expect(screen.queryByRole("link", { name: "Crear primer cliente" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Agregá el primer cliente para comenzar el seguimiento.")).not.toBeInTheDocument();
   });
   it("offers a keyboard-accessible first-page recovery with filters and no fabricated empty result", async () => {
     const user = userEvent.setup();

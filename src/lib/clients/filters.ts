@@ -2,8 +2,10 @@ import { CLIENT_TIME_ZONE } from "./dates";
 import { STATUSES, type Client, type ClientStatus } from "./model";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
+export const SORT_COLUMNS = { nombre: "name", contacto: "contact_at", reunion: "meeting_at" } as const;
+export type ClientSort = keyof typeof SORT_COLUMNS;
 export type Filters = { name: string; statuses: ClientStatus[]; from: string; until: string; view: "kanban" | "tabla";
-  fromUtc: string | null; untilUtc: string | null; page: number };
+  fromUtc: string | null; untilUtc: string | null; page: number; sort: ClientSort; direction: "asc" | "desc" };
 export type ListResult = { kind: "found"; filters: Filters; rows: Client[]; count: number } |
   { kind: "unavailable" | "out_of_range"; filters: Filters } | { kind: "invalid"; message: string };
 export const PAGE_SIZE = 50;
@@ -39,15 +41,17 @@ function dayStart(date: Date) {
 }
 
 export function parseFilters(params: SearchParams): { ok: true; filters: Filters } | { ok: false; message: string } {
-  const invalid = { ok: false as const, message: "Revisá el nombre, los estados y el rango de fechas de los filtros." };
-  if (Object.keys(params).some((key) => !["nombre", "estado", "desde", "hasta", "pagina", "vista"].includes(key)) ||
-    ["nombre", "desde", "hasta", "pagina", "vista"].some((key) => Array.isArray(params[key]))) return invalid;
+  const invalid = { ok: false as const, message: "Revisá la búsqueda, los estados, las fechas de contacto y el orden." };
+  if (Object.keys(params).some((key) => !["nombre", "estado", "desde", "hasta", "pagina", "vista", "orden", "direccion"].includes(key)) ||
+    ["nombre", "desde", "hasta", "pagina", "vista", "orden", "direccion"].some((key) => Array.isArray(params[key]))) return invalid;
   const name = String(params.nombre ?? "").trim(), from = String(params.desde ?? ""), until = String(params.hasta ?? "");
   const states = params.estado === undefined ? [] : Array.isArray(params.estado) ? params.estado : [params.estado];
   const pageText = String(params.pagina ?? "1"), page = Number(pageText);
   const view = params.vista ?? "kanban";
+  const sort = String(params.orden ?? "contacto"), direction = params.direccion ?? "desc";
+  if (!Object.hasOwn(SORT_COLUMNS, sort) || direction !== "asc" && direction !== "desc") return invalid;
   if (view !== "kanban" && view !== "tabla") return invalid;
-  if (name.length > 200 || states.some((state) => !STATUSES.includes(state as ClientStatus)) ||
+  if (name.length > 200 || /[\u0000-\u001f\u007f]/.test(name) || states.some((state) => !STATUSES.includes(state as ClientStatus)) ||
     !/^[1-9]\d*$/.test(pageText) || !Number.isSafeInteger(page * PAGE_SIZE)) return invalid;
   const fromDate = from ? calendarDay(from) : null, untilDate = until ? calendarDay(until) : null;
   if (from && !fromDate || until && !untilDate || from && until && from > until) return invalid;
@@ -56,7 +60,7 @@ export function parseFilters(params: SearchParams): { ok: true; filters: Filters
   const untilUtc = untilDate ? dayStart(untilDate) : null;
   if (from && !fromUtc || until && !untilUtc) return invalid;
   return { ok: true, filters: { name, statuses: STATUSES.filter((state) => states.includes(state)),
-    from, until, fromUtc, untilUtc, page, view } };
+    from, until, fromUtc, untilUtc, page, view, sort: sort as ClientSort, direction } };
 }
 
 export function listPath(filters: Filters, page = filters.page) {
@@ -67,5 +71,7 @@ export function listPath(filters: Filters, page = filters.page) {
   if (filters.until) query.set("hasta", filters.until);
   if (page > 1) query.set("pagina", String(page));
   if (filters.view === "tabla") query.set("vista", "tabla");
+  if (filters.sort !== "contacto") query.set("orden", filters.sort);
+  if (filters.direction !== "desc") query.set("direccion", filters.direction);
   return `/clientes${query.size ? `?${query}` : ""}`;
 }

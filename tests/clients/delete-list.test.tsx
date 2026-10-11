@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => f }));
 vi.mock("@/components/ui/HoldButton", () => ({ default: ({ onHold }: { onHold: () => void }) => <button onClick={onHold}>Confirmar intención</button> }));
 it("closes only confirmed deletion and recovers last-result page preserving filters/view", async () => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("matchMedia", (media: string) => ({ matches: media.includes(": reduce"), media, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
   let settle!: (value: { kind: "success" }) => void;
@@ -20,6 +21,7 @@ it("closes only confirmed deletion and recovers last-result page preserving filt
   const parsed = parseFilters({ nombre: "Confirmado", estado: "Contactado", vista: "tabla", pagina: "2" });
   if (!parsed.ok) throw new Error("fixture");
   render(<NotificationProvider><WithLoading><ClientList result={{ kind: "found", filters: parsed.filters, rows: [confirmed], count: 51 }} /></WithLoading></NotificationProvider>);
+  await userEvent.click(screen.getByRole("button", { name: "Ver Confirmado" }));
   await userEvent.click(screen.getByRole("link", { name: "Editar Confirmado" }));
   await userEvent.click(screen.getByRole("button", { name: "Confirmar intención" }));
   expect(screen.queryByText("Cliente eliminado")).not.toBeInTheDocument();

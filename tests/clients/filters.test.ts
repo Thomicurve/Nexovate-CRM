@@ -3,6 +3,19 @@ import { listPath, parseFilters } from "@/lib/clients/filters";
 import { safeReturnPath } from "@/lib/clients/model";
 
 describe("client filter URL contract", () => {
+  it("keeps allowlisted sorting in pagination, view changes and safe edit returns", () => {
+    const parsed = parseFilters({ nombre: "Empresa", orden: "reunion", direccion: "asc", vista: "tabla", pagina: "2" });
+    expect(parsed.ok).toBe(true); if (!parsed.ok) throw new Error("valid sorting");
+    expect(parsed.filters).toMatchObject({ sort: "reunion", direction: "asc" });
+    const path = listPath(parsed.filters);
+    expect(path).toContain("orden=reunion"); expect(path).toContain("direccion=asc");
+    expect(safeReturnPath(path)).toBe(path);
+    expect(listPath({ ...parsed.filters, view: "kanban" }, 3)).toContain("pagina=3");
+    expect(parseFilters({ orden: "name.desc;drop" }).ok).toBe(false);
+    expect(parseFilters({ direccion: ["asc", "desc"] }).ok).toBe(false);
+    expect(safeReturnPath("/clientes?orden=evil&direccion=asc")).toBe("/clientes");
+    expect(safeReturnPath("//evil.invalid/clientes?orden=nombre")).toBe("/clientes");
+  });
   it("defaults to Kanban and preserves an explicitly validated view with filters, page and safe return", () => {
     const empty = parseFilters({}); if (!empty.ok) throw new Error("valid defaults");
     expect(empty.filters.view).toBe("kanban");

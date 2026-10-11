@@ -1,7 +1,7 @@
 import "server-only";
 import { requireMember } from "@/lib/auth/require-member";
 import { isClient, UUID } from "./model";
-import { PAGE_SIZE, parseFilters, type ListResult, type SearchParams } from "./filters";
+import { PAGE_SIZE, SORT_COLUMNS, parseFilters, type ListResult, type SearchParams } from "./filters";
 export const CLIENT_FIELDS = "id,name,company,rubro,email,phone,notes,status,contact_at,meeting_at,version,created_at,updated_at";
 export async function getClient(id: string) {
   const { client } = await requireMember();
@@ -21,12 +21,17 @@ export async function listClients(params: SearchParams): Promise<ListResult> {
   const filters = parsed.filters;
   try {
     let query = client.from("clients").select(CLIENT_FIELDS, { count: "exact" }).is("deleted_at", null);
-    if (filters.name) query = query.regexIMatch("name", filters.name.replace(/[.*+?^${}()|[\]\\]/g, (value) => `\\${value}`));
+    if (filters.name) {
+      const pattern = filters.name.replace(/[.*+?^${}()|[\]\\]/g, (value) => `\\${value}`);
+      // Quote the regex literal as a PostgREST value, including quotes/backslashes.
+      const literal = JSON.stringify(pattern);
+      query = query.or(`name.imatch.${literal},company.imatch.${literal}`);
+    }
     if (filters.statuses.length) query = query.in("status", filters.statuses);
     if (filters.fromUtc) query = query.gte("contact_at", filters.fromUtc);
     if (filters.untilUtc) query = query.lt("contact_at", filters.untilUtc);
     const offset = (filters.page - 1) * PAGE_SIZE;
-    const { data, count, error, status } = await query.order("contact_at", { ascending: false }).order("id", { ascending: true })
+    const { data, count, error, status } = await query.order(SORT_COLUMNS[filters.sort], { ascending: filters.direction === "asc", nullsFirst: false }).order("id", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
     if (filters.page > 1 && status === 416 && error?.code === "PGRST103") return { kind: "out_of_range", filters };
     if (error || !Array.isArray(data) || !data.every(isClient) || count === null || !Number.isSafeInteger(count) || count < 0 ||

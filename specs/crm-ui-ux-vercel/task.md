@@ -9,7 +9,7 @@
 - **User's mode choice:** «Aprobar y ejecutar en CONTINUOUS (recomendado)» (2026-10-11).
 - **Plan approval:** APPROVE_CURRENT_PLAN.
 - **Approval reference:** respuesta explícita del usuario al checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5, seis etapas, TASK-001 inicial, rama y commits locales; questionItemId `[request_user_input_async,call_W2gUQJpdBfP1epAleUvSbO2p,0]`. Autoriza ejecución secuencial de TASK-001–006, pruebas/revisión/commits y reutilización de los dos logos originales según PLAN-5. Sin push/PR/merge/deploy.
-- **Estado de recuperación local:** CHECKING TASK-001; verificación independiente COMPLETED/STOPPED, Reviewer APPROVED/READY_TO_CONTINUE/STOPPED y entrega local pendiente. next-env/tsconfig preservados. Registro mínimo local por memoria temporalmente no disponible.
+- **Estado de recuperación local:** CHECKING TASK-002; verificación y revisión independientes COMPLETED/STOPPED, candidato aceptado y Delivery pendiente. TASK-001 aceptada y entregada, next-env/tsconfig preservados. Registro mínimo local por memoria temporalmente no disponible.
 - **First task:** TASK-001 tras aprobación y preparación de rama.
 - **TDD and checks:** ON para comportamiento, según convención explícita en `specs/crm-interaction/task.md`. Vitest: RED observado antes de implementar y GREEN después. Cambios puramente visuales necesitan comprobación estructural, contraste/reflujo y revisión nativa, sin tests que repitan CSS. Playwright con fixtures aisladas para flujos integrados; capturas, vídeo y trace desactivados.
 - **Delivery propuesta:** una rama `codex/crm-ui-ux-vercel`, preparada por Implementer Delivery después de aprobación, y un commit local por WU aceptada. Sin worktrees ni ramas por tarea. Push, PR, merge y deploy requieren autoridad separada. Sólo Implementer escribe aplicación; Orchestrator mantiene estos dos documentos. Diseñador trabaja únicamente en Pencil.
@@ -30,7 +30,7 @@ Recorrido local autenticado sólo de lectura. Reflujo/foco/teclado/reduced-motio
 
 ### TASK-001 — Base visual, acceso y navegación
 
-**Status:** IN_PROGRESS · **Criteria:** AC-001, AC-002, AC-013, AC-014
+**Status:** DONE · **Criteria:** AC-001, AC-002, AC-013, AC-014
 
 Definir tokens Vercel/Geist con paleta Nexovate y sus logos originales, primitives compartidos y motion GSAP con limpieza/reduced-motion; migrar estructura y acceso, navegación compacta, salto al contenido y contraseña visible/oculta con ayuda existente.
 
@@ -41,20 +41,24 @@ Definir tokens Vercel/Geist con paleta Nexovate y sus logos originales, primitiv
 - **Work units:** WU-001, base + acceso + pruebas, 400–750 líneas/7–12 archivos, confianza media; commit `feat(ui): establish Geist visual system and accessible shell`.
 - **Result reference:** candidato TASK-001, SHA256 `164f73c013ca81687d7878b1a26fd9d8b8a2cc42d81cc2f44a3921e52cc20d89` (21 paths; path relativo ordenado + NUL + bytes + NUL). Writer observó RED y GREEN 55 tests/10 archivos, E2E local 1 PASS con reflujo 320/390/640/768/1024/1440, lint/typecheck/build aislados PASS sobre Node22.22.3/npm10.9.8. Verificador independiente: todos PASS, E2E20,1s, digest vigente y PNG originales preservados. Typegen reescribió next-env/tsconfig; restauración exclusivamente por Implementer, hashes previos coincidentes antes/después y verificador comprobó `node node_modules/typescript/bin/tsc --noEmit` PASS sobre configuración restaurada. Verification COMPLETED/STOPPED; recibos restantes reutilizados por candidato intacto. Audit oficial: cinco high en dependencias dev idénticas al baseline, ninguna añadida por Geist/GSAP; sin actualizaciones ajenas. Fuente/tests +447/−86; lock generado y dos originales separados. Revisión pendiente; sin commit todavía.
 
-**Review reference:** review_001 confirmó digest y baselines; corrigió su único MAJOR (el menú desmontaba el owner de logout pendiente al robar foco GlobalLoading). Writer observó RED y GREEN14/4, E2E1/24,5s, lint y tsc PASS. verify_001 independiente COMPLETED/STOPPED: GREEN14/4, E2E1/22,5s con foco nativo/guardas/una llamada/limpieza, tsc directo PASS, baseline intacto. review_001 correctiva APPROVED/READY_TO_CONTINUE/STOPPED para digest21 `5ad333b8d4d10db65b577acb007a5485a87f7b7b67e3791f4dca5ddc4fa71688`, sin hallazgos. Build previo reutilizado por fronteras/deps intactas. Commit local pendiente; TASK-002 no iniciada.
+**Review reference:** review_001 confirmó digest y baselines; corrigió su único MAJOR (el menú desmontaba el owner de logout pendiente al robar foco GlobalLoading). Writer observó RED y GREEN14/4, E2E1/24,5s, lint y tsc PASS. verify_001 independiente COMPLETED/STOPPED: GREEN14/4, E2E1/22,5s con foco nativo/guardas/una llamada/limpieza, tsc directo PASS, baseline intacto. review_001 correctiva APPROVED/READY_TO_CONTINUE/STOPPED para digest21 `5ad333b8d4d10db65b577acb007a5485a87f7b7b67e3791f4dca5ddc4fa71688`, sin hallazgos. Build previo reutilizado por fronteras/deps intactas.
+
+**Commit reference:** Delivery COMPLETED/STOPPED, `755e7c5e20d844a62beb0049d8cf9544187290fc`, padre `5d1a195e77568fd9dddcea70b8b67bf645674818`, `feat(ui): establish Geist visual system and accessible shell`. 23 paths explícitos: fuente/tests498+/86−, package3+/1−, lock22+/4−, docs197+, dos PNG originales. Blobs/index/digest/baseline verificados; sin publicación. TASK-001 DONE habilita TASK-002 por CONTINUOUS vigente.
 
 ### TASK-002 — Clientes: encontrar y leer
 
-**Status:** TODO · **Criteria:** AC-003, AC-004, AC-011, AC-014
+**Status:** IN_PROGRESS · **Criteria:** AC-003, AC-004, AC-011, AC-014
 
 Migrar listado/tabla, búsqueda visible de nombre/empresa, panel contextual de filtros, etiquetas removibles, ordenación estable y detalle móvil de lectura. Mantener navegación/retorno coherentes.
 
 - **Depends on:** TASK-001.
-- **Allowed files:** `src/components/clients/client-list.tsx`, `clients.module.css`, `navigation-links.tsx`, nuevos componentes de lectura/filtros en esa carpeta; `src/lib/clients/filters.ts`, `server.ts` y auxiliares estrictamente necesarios de consulta/retorno; `src/app/(crm)/clientes/page.tsx`; pruebas de filtros/listado/consultas/retornos y E2E aislado correspondientes.
+- **Allowed files:** `src/components/clients/client-list.tsx`, `clients.module.css`, `navigation-links.tsx`, nuevos componentes de lectura/filtros en esa carpeta; `src/lib/clients/filters.ts`, `server.ts` y auxiliares estrictamente necesarios de consulta/retorno (`model.ts` únicamente allowlist de orden/dirección en returnTo); `src/app/(crm)/clientes/page.tsx`; pruebas de filtros/listado/consultas/retornos y E2E aislado correspondientes.
 - **Done when:** filtros/orden/búsqueda concuerdan con datos, URL y regreso; ningún filtro obliga a perder contexto; móvil permite leer todos los datos existentes; vacíos accionables y conteos honestos; contratos validados independientemente.
 - **Checks:** RED/GREEN de consultas y navegación, pruebas focalizadas, lint/typecheck, teclado y anchos objetivo del listado.
 - **Work units:** WU-002, consulta + presentación + pruebas, 500–900 líneas/6–10 archivos, confianza media; commit `feat(clients): improve search filters sorting and mobile details`.
-- **Result reference:** pendiente.
+- **Result reference:** Implementer IMPLEMENTED/STOPPED sobre base `755e7c5e20d844a62beb0049d8cf9544187290fc`. Candidato13paths SHA256 `11b51de03d85051a6f630d1bc5106ada102f0a68689afc08e5804641edb8e9fc`, +513/−135. RED8fallas/41PASS y recuperación de página vacía RED1; writer GREEN75/6files, E2E3/20,7s, lint, tsc directo y build aislado PASS. verify_002 independiente COMPLETED/STOPPED: GREEN75/6files, E2E3/20,3s (390/640/768/1024/1440, foco nativo, filtros, vacíos y regresión vista/refresh/historial), lint/tsc PASS sobre Node22/npm10; digest, HEAD e índice verificados. SDK Supabase real con fetch local, sin SQL live; build del writer reutilizado. Baselines intactos. review/commit pendientes.
+
+**Review reference:** review_002 APPROVED/READY_TO_CONTINUE/STOPPED para el digest13 anterior, sin hallazgos. Contraste real de fuentes y baselines Git, incluidos objetos packed, confirma casos previos preservados y cobertura AC-003/004/011/014 aplicable. Reutiliza recibos independientes; sin checks ejecutados por Reviewer. Candidato aceptado para commit local WU-002.
 
 ### TASK-003 — Kanban claro y operable
 
@@ -110,8 +114,8 @@ Completar feedback de operaciones, esperas y recuperación, límites error/not-f
 
 ## Próximo paso
 
-- **Next task:** TASK-001; IN_PROGRESS, única tarea seleccionada.
+- **Next task:** TASK-002; IN_PROGRESS, única tarea seleccionada.
 - **Continuation:** COVERED_BY_CONTINUOUS_PLAN.
-- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; diseño revalidado DESIGN_APPROVED/STOPPED y rama Delivery verificada. Próxima TASK-001.
-- **Consumed by:** dispatch único Implementer TASK-001; permiso continuo válido únicamente para PLAN-5.
+- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; TASK-001 comprobada, revisada y entregada mediante commit local verificado. Próxima TASK-002.
+- **Consumed by:** dispatch único Implementer TASK-002; permiso continuo válido únicamente para PLAN-5.
 - **Recuperación local:** estos documentos y el documento nativo mantienen el alcance. Memoria atribuida al agente temporalmente no disponible: registro de identidad runtime no confirmado; no intentar guardar sin registro del host.

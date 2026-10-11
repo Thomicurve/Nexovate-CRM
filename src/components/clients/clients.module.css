@@ -61,20 +61,25 @@
 @keyframes fadeBackdrop { from { background: #050c1800; } to { background: #050c18b3; } }
 @media (prefers-reduced-motion: reduce) { .modal[open], .modal[data-closing], .modal::backdrop, .modal[data-closing]::backdrop { animation: none; } }
 @media (max-width: 600px) { .modalHeader { padding: 12px 16px; } .modalHeader h1 { font-size: 22px; } .modalForm { padding: 16px 16px 0; } }
-.tableSurface { width: 100%; border: 1px solid #243750; border-radius: 10px; background: var(--surface); }
+.tableSurface { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
-.table th, .table td { padding: 16px; overflow-wrap: anywhere; }
+.table th, .table td { padding: 12px; overflow-wrap: anywhere; }
 .table th { color: var(--secondary); font-size: 13px; font-weight: 500; }
-.table td { border-top: 1px solid #243750; vertical-align: middle; }
-.table th:first-child { width: 28%; }
-.table th:last-child { width: 90px; }
-.clientName { display: block; font-weight: 600; }
-.company { display: block; margin-top: 4px; color: var(--secondary); font-size: 13px; }
-.status { display: inline-block; padding: 5px 8px; border: 1px solid #597697; border-radius: 6px; }
+.table td { height: 76px; font-size: 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+.table th:first-child { width: 24%; }
+.table th:last-child { width: 94px; }
+.clientName { display: block; font-weight: 500; }
+.company { display: block; color: var(--secondary); font-size: 14px; }
+.status { display: inline-block; padding: 5px 8px; border: 1px solid var(--field-border); border-radius: 6px; font-size: 14px; }
+.sortLink { display: inline-flex; align-items: center; min-height: 44px; color: var(--secondary); text-decoration: none; }
+.sortLink:hover { color: var(--foreground); }
+.readButton { min-width: 70px; min-height: 44px; padding: 0 16px; border: 1px solid var(--field-border); background: transparent; color: var(--foreground); border-radius: 6px; font-size: 14px; font-weight: 500; }
+.readButton:hover:not(:disabled) { background: var(--elevated); }
 .editLink { display: inline-flex; align-items: center; min-height: 44px; color: var(--focus); }
 .listState { display: grid; gap: 12px; padding: 32px; border: 1px solid #243750; border-radius: 10px; background: var(--surface); }
-.pagination { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
-.pagination a { display: inline-flex; min-height: 44px; align-items: center; color: var(--focus); }
+.pagination { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; align-items: center; }
+.pagination p, .pagination span { font-size: 14px; color: var(--secondary); }
+.pagination a { display: inline-flex; min-height: 44px; align-items: center; color: var(--foreground); }
 .destination { min-width: 0; gap: 24px; }
 .destination > h1 { font-size: 26px; }
 .viewBar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
@@ -136,16 +141,6 @@
   .filterDates { grid-template-columns: minmax(0, 1fr); }
   .filterActions button[type="submit"] { width: 100%; }
   .listHeading { flex-wrap: wrap; }
-  .table .optionalColumn, .company { display: none; }
-  .table tr { display: grid; grid-template-columns: minmax(0, 1fr) 130px; }
-  .table th:first-child { width: auto; }
-  .table th:last-child { display: none; }
-  .table td:first-child { grid-column: 1; grid-row: 1 / span 2; }
-  .table td:nth-child(3) { grid-column: 2; grid-row: 1; }
-  .table td:last-child { grid-column: 2; grid-row: 2; padding-top: 0; }
-  .table tbody tr { border-top: 1px solid #243750; }
-  .table td { border-top: 0; }
-  .table th, .table td { padding: 12px 8px; }
   .mobileContact { display: block; font-size: 12px; color: var(--secondary); margin-top: 6px; }
   .listState { padding: 24px; }
 }
@@ -153,3 +148,52 @@
 .deleteSection h2 { font-size: 18px; color: #f0aeb5; }
 .deleteSection p { color: #a6b7ce; margin: 12px 0; }
 .deleteButton { min-height: 48px; width: 100%; outline-color: #a6caff !important; }
+
+.listHeading { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+.listHeading > div:first-child { display: grid; gap: 8px; min-width: 0; }
+.listHeading h1 { font-size: 32px; }
+.listHeading .actions button, .listHeading .actions a, .filterPanel .actions button, .filterPanel .actions a, .pagination .actions button, .pagination .actions a { font-size: 14px; font-weight: 500; }
+.listHeading .actions .refreshButton, .pagination .actions a { border-color: var(--field-border); }
+.listToolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.searchForm { display: flex; align-items: flex-end; gap: 8px; flex: 1 1 320px; min-width: 0; }
+.searchForm .field { flex: 1; }
+.searchForm .field, .filterPanel .field { gap: 6px; }
+.searchForm label, .filterPanel label { font-weight: 500; }
+.searchForm input, .filterPanel .field input, .filterPanel select { background: var(--surface); border-color: var(--field-border); border-radius: 6px; font-size: 16px; }
+.searchButton, .filtersButton { min-height: 44px; border: 1px solid var(--field-border); background: var(--surface); color: var(--foreground); border-radius: 6px; padding: 0 16px; font-size: 14px; font-weight: 500; }
+.searchButton:hover, .filtersButton:hover { background: var(--elevated); }
+.filterChips { display: flex; flex-wrap: wrap; gap: 8px; }
+.filterChips a { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; gap: 8px; padding: 8px 12px; background: var(--elevated); border: 1px solid var(--field-border); border-radius: 6px; color: var(--foreground); font-size: 14px; text-decoration: none; overflow-wrap: anywhere; }
+.filterPanel { max-width: 443px; padding: 20px; gap: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.filterPanel h2 { margin: 0; font-size: 22px; font-weight: 600; }
+.filterPanel h2:focus { outline: none; }
+.filterPanel form { min-width: 0; }
+.filterFields { display: grid; gap: 16px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.filterPanel .stateOptions label { border-color: var(--field-border); }
+.filterPanel .stateOptions .selectedState { border-color: var(--focus); background: var(--elevated); }
+.viewSwitch { border-color: var(--field-border); }
+.viewSwitch [role="radio"] { outline-color: var(--focus) !important; }
+.readDetail { width: min(443px, calc(100vw - 40px)); max-width: none; max-height: calc(100dvh - 40px); padding: 20px; color: var(--foreground); background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; }
+.readDetail[open] { display: flex; flex-direction: column; gap: 16px; }
+.readDetail::backdrop { background: rgb(8 14 26 / 75%); }
+.detailHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-shrink: 0; }
+.detailHeader h2 { margin: 0; font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.detailFields { display: grid; gap: 16px; margin: 0; min-height: 0; overflow-y: auto; }
+.detailFields dt { font-size: 13px; color: var(--secondary); }
+.detailFields dd { margin: 6px 0 0; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detailFields a { color: var(--focus); display: inline-flex; align-items: center; min-height: 44px; }
+.detailEdit { display: flex; align-items: center; justify-content: center; min-height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 6px; background: var(--action); color: white; text-decoration: none; font-size: 14px; font-weight: 500; }
+@media (max-width: 767px) {
+  .destination { margin: 0; width: 100%; padding-inline: 4px; }
+  .listHeading h1 { font-size: 28px; }
+  .listToolbar .searchForm { flex-basis: 100%; }
+  .filterPanel { width: 100%; margin: 0; background: var(--surface); border: 1px solid var(--border); padding: 20px; }
+  .filterDates { grid-template-columns: minmax(0, 1fr); }
+  .table thead { display: none; }
+  .table .optionalColumn { display: none; }
+  .table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 6px 12px; padding: 12px; border-top: 1px solid var(--border); }
+  .table td { border: 0; padding: 0; height: auto; grid-column: 1; }
+  .table td:last-child { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
+  .clientName { font-size: 16px; }
+  .pagination { align-items: flex-start; }
+}

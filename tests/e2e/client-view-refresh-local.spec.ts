@@ -21,7 +21,7 @@ test.beforeAll(async () => {
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
         if (!["/clientes", "/dashboard"].includes(new URL(request.url!, "http://local.invalid").pathname)) return next();
         response.setHeader("Content-Type", "text/html");
-        response.end(await vite.transformIndexHtml(request.url!, '<html lang="es"><body style="padding:24px"><div id="root"></div><script type="module" src="/tests/e2e/client-view-refresh-harness.tsx"></script></body></html>'));
+        response.end(await vite.transformIndexHtml(request.url!, '<html lang="es"><head><style>body{padding:16px}@media(min-width:768px){body{padding:40px}}</style></head><body><div id="root"></div><script type="module" src="/tests/e2e/client-view-refresh-harness.tsx"></script></body></html>'));
       }); },
     }] });
   await server.listen();
@@ -86,7 +86,7 @@ test("local components preserve filtered page through view/history/reload and bo
   await expect(page.getByText("Página 2 · 101 clientes")).toBeVisible();
   expect(reads).toHaveLength(beforePage + 1);
   await page.getByRole("button", { name: "Filtros de clientes" }).click();
-  await page.getByLabel("Nombre").fill("Nadie");
+  await page.getByLabel("Buscar por nombre o empresa").fill("Nadie");
   const beforeFilter = reads.length;
   await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
   await expect(page.getByText("No hay clientes que coincidan con los filtros.")).toBeVisible();
@@ -97,4 +97,98 @@ test("local components preserve filtered page through view/history/reload and bo
   await expect(page.getByRole("combobox", { name: "Estado visible" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(writes).toEqual([]);
+});
+
+test("client reading and contextual filters reflow with native keyboard focus and safe return context", async ({ page }) => {
+  test.setTimeout(90_000); // Cold Vite imports after a worker restart.
+  const writes: string[] = [];
+  const client = { ...confirmed, company: "Empresa " + "Extensa".repeat(15), rubro: "Servicios",
+    email: "persona@example.com", phone: "+54 (11) 1234-5678", notes: "Notas de seguimiento.\n".repeat(25) };
+  await page.route("**/__fixture**", async (route) => {
+    const parsed = parseFilters(Object.fromEntries(new URL(route.request().url()).searchParams));
+    if (!parsed.ok) throw new Error("Invalid local fixture query");
+    await route.fulfill({ json: { kind: "found", filters: parsed.filters, rows: [client], count: 1 } });
+  });
+  page.on("request", (request) => { if (request.method() !== "GET") writes.push(request.url()); });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const context = "nombre=Empresa&estado=Contactado&desde=2026-10-07&hasta=2026-10-08&vista=tabla&orden=nombre&direccion=asc";
+  await page.goto(`/clientes?${context}`);
+  for (const width of [390, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const search = page.getByRole("searchbox", { name: "Buscar por nombre o empresa" });
+    await expect(search).toBeVisible(); await expect(search).toHaveValue("Empresa");
+    await expect(page.getByText("1–1 de 1 clientes", { exact: true })).toBeVisible();
+    const filters = page.getByRole("button", { name: "Filtros de clientes" });
+    await filters.focus(); await page.keyboard.press("Enter");
+    const panel = page.getByRole("region", { name: "Filtrar clientes" });
+    await expect(panel).toBeVisible(); await expect(panel.getByRole("heading")).toBeFocused();
+    await expect(page.getByRole("table", { name: "Clientes" })).toBeVisible();
+    await expect(panel.getByLabel("Contacto desde")).toHaveValue("2026-10-07");
+    await expect(panel.getByLabel("Ordenar por")).toHaveValue("nombre:asc");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.keyboard.press("Escape"); await expect(filters).toBeFocused();
+    const opener = page.getByRole("button", { name: "Ver Confirmado" });
+    await opener.focus(); await page.keyboard.press("Enter");
+    const detail = page.getByRole("dialog", { name: "Confirmado", exact: true });
+    await expect(detail.getByRole("button", { name: "Cerrar", exact: true })).toBeFocused();
+    for (const label of ["Empresa", "Rubro", "Estado", "Email", "Teléfono", "Contacto", "Reunión", "Notas"]) {
+      await expect(detail.locator("dt", { hasText: new RegExp(`^${label}$`) })).toHaveCount(1);
+    }
+    await expect(detail.getByRole("link", { name: "Enviar correo a Confirmado" })).toHaveAttribute("href", "mailto:persona%40example.com");
+    await expect(detail.getByRole("link", { name: "Llamar a Confirmado" })).toHaveAttribute("href", "tel:+541112345678");
+    const edit = detail.getByRole("link", { name: "Editar Confirmado" });
+    expect(new URL(await edit.getAttribute("href") ?? "", page.url()).searchParams.get("returnTo")).toBe(`/clientes?${context}`);
+    const box = await detail.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press("Shift+Tab"); await expect(edit).toBeFocused();
+    await page.keyboard.press("Tab"); await expect(detail.getByRole("button", { name: "Cerrar", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape"); await expect(opener).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Ver Confirmado" }).click();
+  await page.getByRole("link", { name: "Editar Confirmado" }).click();
+  await expect(page.getByRole("dialog", { name: "Editar cliente" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Ver Confirmado" })).toBeFocused();
+  await page.getByRole("link", { name: "Quitar estado Contactado" }).click();
+  await expect(page.getByRole("link", { name: "Quitar estado Contactado" })).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get("nombre")).toBe("Empresa");
+  expect(new URL(page.url()).searchParams.get("orden")).toBe("nombre");
+  await page.getByRole("button", { name: "Filtros de clientes" }).click();
+  await page.getByLabel("Ordenar por", { exact: true }).selectOption("reunion:asc");
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await expect(page).toHaveURL(/orden=reunion/);
+  expect(new URL(page.url()).searchParams.get("orden")).toBe("reunion");
+  expect(new URL(page.url()).searchParams.get("nombre")).toBe("Empresa");
+  expect(new URL(page.url()).searchParams.has("pagina")).toBe(false);
+  await expect(page.getByRole("table", { name: "Clientes" })).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test("empty states offer the correct recovery and invalid contact values remain text", async ({ page }) => {
+  test.setTimeout(90_000); // Cold Vite imports after a worker restart.
+  await page.route("**/__fixture**", async (route) => {
+    const parsed = parseFilters(Object.fromEntries(new URL(route.request().url()).searchParams));
+    if (!parsed.ok) throw new Error("Invalid local fixture query");
+    const filters = parsed.filters;
+    await route.fulfill({ json: filters.page > 1 ? { kind: "out_of_range", filters } : { kind: "found", filters,
+      rows: filters.name === "Invalid" ? [{ ...confirmed, email: "bad\n@example.com", phone: "javascript:123456" }] : [],
+      count: filters.name === "Invalid" ? 1 : 0 } });
+  });
+  await page.goto("/clientes?vista=tabla");
+  await expect(page.getByText("Todavía no hay clientes.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Crear primer cliente" })).toBeVisible();
+  await page.getByRole("searchbox").fill("Nadie");
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await expect(page.getByText("No hay clientes que coincidan con los filtros.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Limpiar filtros", exact: true }).last()).toBeVisible();
+  await page.goto("/clientes?pagina=2&vista=tabla&orden=nombre&direccion=asc");
+  await page.getByRole("link", { name: "Volver a la primera página" }).click();
+  expect(new URL(page.url()).searchParams.get("orden")).toBe("nombre");
+  expect(new URL(page.url()).searchParams.has("pagina")).toBe(false);
+  await page.goto("/clientes?nombre=Invalid&vista=tabla");
+  await page.getByRole("button", { name: "Ver Confirmado" }).click();
+  const detail = page.getByRole("dialog", { name: "Confirmado", exact: true });
+  await expect(detail.getByRole("link", { name: /Enviar correo|Llamar/ })).toHaveCount(0);
+  await expect(detail.getByText("Sin cita", { exact: true })).toBeVisible();
 });
