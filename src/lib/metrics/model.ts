@@ -5,7 +5,9 @@ export type MetricTotals = { status: typeof METRIC_STATUSES[number]; historicalT
 export type Metric = MetricTotals & { buckets: { start: string; count: number }[] };
 export type MetricsData = ({ kind: "ready"; metrics: Metric[] } |
   { kind: "too_many_buckets"; bucketCount: number; metrics: MetricTotals[] }) & MetricsQuery;
-export type MetricsResult = MetricsData | { kind: "invalid"; message: string } | { kind: "unavailable"; query: MetricsQuery };
+export type MetricsComparison = { kind: "ready"; query: MetricsQuery; metrics: MetricTotals[] } |
+  { kind: "unavailable"; query: MetricsQuery | null };
+export type MetricsResult = (MetricsData & { comparison?: MetricsComparison }) | { kind: "invalid"; message: string } | { kind: "unavailable"; query: MetricsQuery };
 
 export function calendarDate(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;

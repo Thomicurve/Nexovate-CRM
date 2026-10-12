@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMetricsQuery } from "@/lib/metrics/query";
+import { metricsPreset, previousMetricsQuery, parseMetricsQuery } from "@/lib/metrics/query";
 import { METRIC_STATUSES, bucketCount, decodeMetrics, type MetricsQuery } from "@/lib/metrics/model";
 
 const query: MetricsQuery = { from: "2026-10-07", until: "2026-10-09", grouping: "day" };
@@ -73,5 +73,28 @@ describe("dashboard dates and response contract", () => {
     expect(decodeMetrics({ ...r, bucketCount: 2001 }, q)).toBeNull();
     expect(decodeMetrics({ ...r, kind: "ready" }, q)).toBeNull();
     expect(decodeMetrics({ ...r, metrics: r.metrics.map((m) => ({ ...m, buckets: [] })) }, q)).toBeNull();
+  });
+});
+
+describe("local dashboard presets and immediately previous inclusive range", () => {
+  it.each([
+    ["seven", "2026-01-01T02:59:59Z", "2025-12-25", "2025-12-31"],
+    ["month", "2026-01-01T02:59:59Z", "2025-12-01", "2025-12-31"],
+    ["previous-month", "2024-03-01T03:00:00Z", "2024-02-01", "2024-02-29"],
+    ["previous-month", "2026-01-01T03:00:00Z", "2025-12-01", "2025-12-31"],
+  ] as const)("preset %s follows Buenos Aires calendar", (preset, now, from, until) => {
+    expect(metricsPreset(preset, new Date(now))).toEqual({ from, until });
+  });
+  it("compares equal inclusive days across leap/month/year boundaries without overlapping current", () => {
+    expect(previousMetricsQuery({ from: "2024-03-01", until: "2024-03-03", grouping: "month" })).toEqual({ from: "2024-02-27", until: "2024-02-29", grouping: "month" });
+    expect(previousMetricsQuery({ from: "2026-01-01", until: "2026-01-01", grouping: "day" })).toEqual({ from: "2025-12-31", until: "2025-12-31", grouping: "day" });
+  });
+  it("does not query an unsupported previous period or invent a preset outside supported bounds", () => {
+    expect(previousMetricsQuery({ from: "1900-01-01", until: "1900-01-02", grouping: "day" })).toBeNull();
+    expect(metricsPreset("seven", new Date("1900-01-02T15:00:00Z"))).toBeNull();
+    expect(metricsPreset("previous-month", new Date("1900-01-02T15:00:00Z"))).toBeNull();
+  });
+  it("offers the valid current month when the default seven days cross the lower bound", () => {
+    expect(metricsPreset("month", new Date("1900-01-02T15:00:00Z"))).toEqual({ from: "1900-01-01", until: "1900-01-02" });
   });
 });

@@ -8,7 +8,7 @@ import { METRIC_STATUSES, type Metric, type MetricsData } from "@/lib/metrics/mo
 const f = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => f }));
 vi.mock("@/components/dashboard/metric-chart", async (original) => ({ ...await original<typeof import("@/components/dashboard/metric-chart")>(),
-  MetricChart: ({ buckets }: Pick<Metric, "buckets">) => <div data-testid="chart" data-periods={buckets.length} /> }));
+  MetricChart: ({ metrics, buckets }: { metrics?: Metric[]; buckets?: Metric["buckets"] }) => <div data-testid="chart" data-periods={metrics?.[0].buckets.length ?? buckets?.length} /> }));
 const query = { from: "2026-10-07", until: "2026-10-09", grouping: "day" as const };
 function data(historical = 12, range = 3): MetricsData {
   return { kind: "ready", ...query, metrics: METRIC_STATUSES.map((status) => ({ status, historicalTotal: historical,
@@ -16,8 +16,9 @@ function data(historical = 12, range = 3): MetricsData {
 }
 const render = (ui: ReactNode) => renderUi(ui, { wrapper: WithLoading });
 
+beforeEach(() => vi.clearAllMocks());
+
 describe("dashboard totals, range and accessible periods", () => {
-  beforeEach(() => vi.clearAllMocks());
   it("refreshes once and keeps confirmed metrics and range after a recoverable failure", async () => {
     let finish!: () => void;
     f.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
@@ -51,17 +52,17 @@ describe("dashboard totals, range and accessible periods", () => {
   });
   it("shows three distinct range/historical totals and every calendar period in semantic tables", async () => {
     render(<Dashboard result={data()} params={{}} />);
-    for (const title of ["Contactados", "Reuniones agendadas", "Cerrados"]) {
+    for (const title of ["Contactados", "Reuniones", "Cerrados"]) {
       const metric = screen.getByRole("region", { name: title });
       expect(within(metric).getByLabelText(`${title} en el rango seleccionado`)).toHaveTextContent("3");
       expect(within(metric).getByText("12 históricos")).toBeVisible();
-      await userEvent.click(within(metric).getByText("Ver datos por período"));
-      const table = within(metric).getByRole("table", { name: `${title} por período` });
-      expect(within(table).getAllByRole("row")).toHaveLength(4);
-      expect(within(table).getByText("07/10/2026")).toBeVisible();
-      expect(within(table).getAllByText("0")).toHaveLength(2);
     }
-    expect(screen.getAllByTestId("chart")).toHaveLength(3);
+    await userEvent.click(screen.getByText("Ver datos por período"));
+    const table = screen.getByRole("table", { name: "Hitos por período" });
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getByText("07/10/2026")).toBeVisible();
+    expect(within(table).getAllByText("0")).toHaveLength(6);
+    expect(screen.getAllByTestId("chart")).toHaveLength(1);
   });
   it("distinguishes no history from no activity in a range while preserving historical totals", () => {
     const view = render(<Dashboard result={data(0, 0)} params={{}} />);
@@ -84,6 +85,7 @@ describe("dashboard totals, range and accessible periods", () => {
     expect(screen.getByLabelText("Desde")).toHaveValue("2026-10-09");
     expect(screen.getByLabelText("Hasta")).toHaveValue("2026-10-07");
     expect(screen.getByRole("alert")).toHaveTextContent("Revisá el rango");
+    expect(screen.queryByText(/^Período aplicado:/)).toBeNull();
     expect(f.push).not.toHaveBeenCalled(); expect(screen.queryByText("0")).not.toBeInTheDocument();
   });
   it("applies valid drafts explicitly with only allowed local URL parameters", async () => {
@@ -100,11 +102,13 @@ describe("dashboard totals, range and accessible periods", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Revisá el rango"); expect(f.push).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Hasta")).toHaveValue("2026-10-01");
   });
-  it.each([["Mes", "month"], ["Año", "year"], ["Día", "day"]])("group %s uses applied bounds rather than unsaved drafts", async (label, grouping) => {
+  it.each([["Mes", "month"], ["Año", "year"], ["Día", "day"]])("group %s preserves draft dates and applies both explicitly", async (label, grouping) => {
     render(<Dashboard result={data()} params={{}} />);
     await userEvent.clear(screen.getByLabelText("Desde")); await userEvent.type(screen.getByLabelText("Desde"), "2026-09-01");
     await userEvent.click(screen.getByRole("button", { name: label }));
-    expect(f.push).toHaveBeenCalledWith(`/dashboard?desde=2026-10-07&hasta=2026-10-09&agrupacion=${grouping}`);
+    expect(f.push).not.toHaveBeenCalled(); expect(screen.getByLabelText("Desde")).toHaveValue("2026-09-01");
+    await userEvent.click(screen.getByRole("button", { name: "Aplicar rango" }));
+    expect(f.push).toHaveBeenCalledWith(`/dashboard?desde=2026-09-01&hasta=2026-10-09&agrupacion=${grouping}`);
   });
   it("keeps confirmed totals and declares excessive series without empty placeholders", () => {
     render(<Dashboard result={{ kind: "too_many_buckets", from: "1900-01-01", until: "9999-12-31", grouping: "year", bucketCount: 8100,
@@ -118,7 +122,7 @@ describe("dashboard totals, range and accessible periods", () => {
     const button = screen.getByRole("button", { name: "Aplicar rango" }); button.focus(); await userEvent.keyboard("{Enter}");
     expect(f.push).toHaveBeenCalledOnce();
     const summary = screen.getAllByText("Ver datos por período")[0]; expect(summary.tagName).toBe("SUMMARY"); await userEvent.click(summary);
-    expect(screen.getByRole("table", { name: "Contactados por período" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Hitos por período" })).toBeVisible();
   });
   it("preserves every period at the 2000-bucket limit in the chart input and table", async () => {
     const result = data(1, 0);
@@ -128,6 +132,28 @@ describe("dashboard totals, range and accessible periods", () => {
     render(<Dashboard result={result} params={{}} />);
     for (const chart of screen.getAllByTestId("chart")) expect(chart).toHaveAttribute("data-periods", "2000");
     await userEvent.click(screen.getAllByText("Ver datos por período")[0]);
-    expect(within(screen.getByRole("table", { name: "Contactados por período" })).getAllByRole("row")).toHaveLength(2001);
+    expect(within(screen.getByRole("table", { name: "Hitos por período" })).getAllByRole("row")).toHaveLength(2001);
   });
 });
+
+it.each(["zero", "unknown", "real"])("explains comparison honestly with %s base", (base) => {
+  const current = data();
+  render(<Dashboard result={{ ...current, comparison: base === "unknown" ? { kind: "unavailable", query: { ...query, from: "2026-10-04", until: "2026-10-06" } } : {
+    kind: "ready", query: { ...query, from: "2026-10-04", until: "2026-10-06" }, metrics: METRIC_STATUSES.map((status) => ({ status, historicalTotal: 12, rangeTotal: base === "zero" ? 0 : 2 })) } }} params={{}} />);
+  expect(screen.getByText(/04\/10\/2026 a 06\/10\/2026/)).toBeVisible();
+  const metric = screen.getByRole("region", { name: "Contactados" });
+  expect(within(metric).getByText(base === "zero" ? /\+3 hitos.*base anterior: 0/i : base === "unknown" ? /Comparación no disponible/i : /\+1 hitos.*\+50 %/)).toBeVisible();
+  if (base !== "real") expect(metric.textContent).not.toContain("%");
+});
+it("makes all three quick periods available without applying immediately", async () => {
+  render(<Dashboard result={data()} params={{}} />);
+  for (const label of ["Últimos siete días", "Mes actual", "Mes anterior"]) expect(screen.getByRole("button", { name: label })).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+  expect(f.push).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: /^Mes$/ }));
+  const from = (screen.getByLabelText("Desde") as HTMLInputElement).value;
+  await userEvent.click(screen.getByRole("button", { name: "Aplicar rango" }));
+  expect(f.push).toHaveBeenCalledWith(expect.stringContaining(`desde=${from}`));
+});
+
+vi.mock("@/components/ui/motion", () => ({ usePanelMotion: vi.fn() }));
