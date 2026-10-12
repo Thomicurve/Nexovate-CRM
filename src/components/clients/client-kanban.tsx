@@ -27,7 +27,7 @@ export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[
   const router = useRouter(), notify = useNotification();
   const [board, setBoard] = useState<BoardMove>({ rows, intent: null, original: null, pending: false, result: null });
   const [refreshPending, transition] = useTransition();
-  usePendingLoading(board.pending || refreshPending);
+  usePendingLoading(board.pending || refreshPending, board.pending ? "move" : "clients");
   const current = useRef(board), initialRows = useRef(rows), [seenRows, setSeenRows] = useState(rows);
   const container = useRef<HTMLElement>(null), focusAfter = useRef<string | null>(null);
   const [visible, setVisible] = useState<ClientStatus>("Contactado");

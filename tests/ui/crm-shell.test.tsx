@@ -51,6 +51,7 @@ it("keeps logout loading and duplicate guards alive after modal focus closes the
   await user.click(item);
   expect(logout).toHaveBeenCalledOnce();
   const loading = screen.getByRole("dialog", { name: "Cargando" });
+  expect(screen.getByRole("heading", { name: "Cerrando sesión…" })).toBeVisible();
   expect(loading).toBeVisible(); expect(loading).toHaveFocus();
   expect(screen.queryByRole("menu")).toBeNull();
   expect(item.isConnected).toBe(true); expect(item).toBeDisabled();

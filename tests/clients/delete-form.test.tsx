@@ -59,6 +59,7 @@ it("offers ordinary keyboard confirmation using the same pending delete guard", 
   const confirm = screen.getByRole("button", { name: "Confirmar borrado" });
   fireEvent.click(confirm); fireEvent.click(confirm);
   expect(remove).toHaveBeenCalledOnce();
+  expect(screen.getByRole("heading", { name: "Eliminando cliente…" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
   await act(async () => settle({ kind: "success" }));
 });

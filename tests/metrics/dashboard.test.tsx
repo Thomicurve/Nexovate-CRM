@@ -44,7 +44,7 @@ describe("dashboard totals, range and accessible periods", () => {
     f.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<Dashboard result={data()} params={{}} />);
     await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    expect(screen.getByRole("status")).toHaveTextContent("Consultando métricas…");
     await act(async () => finish());
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");

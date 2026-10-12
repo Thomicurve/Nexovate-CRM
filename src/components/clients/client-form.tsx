@@ -39,12 +39,12 @@ export function ClientForm(props: Props) {
 function FormBody({ client, requestId, initialContact, returnTo, action, deleteAction, onDeleted, resume, focusOnMount, embedded, closing, onSuccess, onCancel, onLockChange, onRegisterExit, draft }: Props & { resume: (client: Client, draft?: Draft) => void; focusOnMount: boolean; draft?: Draft }) {
   const router = useRouter(), notify = useNotification();
   const [navigating, transition] = useTransition();
-  usePendingLoading(navigating);
+  usePendingLoading(navigating, "navigation");
   const firstField = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => { if (focusOnMount) firstField.current?.focus(); }, [focusOnMount]);
   const deletion = useRef<DeleteIntent | null>(null), deleting = useRef(false);
   const [deletePending, setDeletePending] = useState(false), [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
-  usePendingLoading(deletePending);
+  usePendingLoading(deletePending, "delete");
   async function remove() {
     if (!client || !deleteAction || deleting.current || deleteUnavailable) return;
     deletion.current ??= Object.freeze({ requestId: crypto.randomUUID(), clientId: client.id, version: client.version });
@@ -80,7 +80,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
       return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos antes de salir." };
     }
   }, { status: "idle" } as SaveState);
-  usePendingLoading(pending);
+  usePendingLoading(pending, "save");
   const deleteLocked = deletePending || deleteResult?.kind === "success" || deleteResult?.kind === "conflict" || deleteResult?.kind === "error" && deleteResult.retry;
   const disabled = pending || state.status === "success" || Boolean(closing) || deleteLocked;
   const [intent, setIntent] = useState(requestId);

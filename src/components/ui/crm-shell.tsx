@@ -56,7 +56,7 @@ export function CrmShell({ children, logout }: { children: ReactNode; logout: ()
               }
             }}>
             {/* Focus moves to GlobalLoading while pending; keep its form/token owner mounted. */}
-            <form action={logout}><FormLoading /><LogoutButton trigger={trigger} /></form>
+            <form action={logout}><FormLoading operation="logout" /><LogoutButton trigger={trigger} /></form>
           </div>
         </div>
       </div>

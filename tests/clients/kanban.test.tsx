@@ -160,6 +160,7 @@ describe("shared client views and approved board controls", () => {
     expect(f.move.mock.calls[0][0]).toMatchObject({ clientId, version: 2, from: "Contactado", to: "Interesado" });
     expect(screen.queryByText("Soltar aquí")).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Cargando" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Moviendo cliente…" })).toBeVisible();
     expect(screen.getByRole("radio", { name: "Tabla" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeDisabled();
     act(() => {

@@ -47,7 +47,7 @@ describe("approved accessible login states", () => {
     await user.type(screen.getByLabelText("Contraseña"), "synthetic");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
     expect(screen.getByRole("button", { name: "Ingresando…" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    expect(screen.getByRole("status")).toHaveTextContent("Ingresando…");
     expect(action).toHaveBeenCalledOnce();
     await act(async () => finish({ status: "error", message: "Reintentá" }));
   });

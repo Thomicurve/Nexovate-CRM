@@ -28,7 +28,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const [view, setView] = useState(incoming.kind === "invalid" ? "kanban" : incoming.filters.view);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
   const [pending, startTransition] = useTransition();
-  usePendingLoading(pending || refreshing);
+  usePendingLoading(pending || refreshing, "clients");
   const navigateFilters = useLoadingFormNavigation();
   const [seenPending, setSeenPending] = useState(false);
   const refreshGuard = useRef(false);

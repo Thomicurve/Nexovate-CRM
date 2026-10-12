@@ -4,6 +4,7 @@ import { inspectAccess } from "@/lib/auth/access";
 import { connectionMessage } from "@/lib/auth/login";
 import { LoginForm } from "@/components/auth/login-form";
 import { LoginPanel } from "@/components/auth/login-panel";
+import { FormLoading } from "@/components/ui/global-loading";
 import { login, logout } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function LoginPage({ searchParams }: {
         {denied ? <>
           <p role="alert" className="auth-error">Esta cuenta no tiene acceso al CRM.</p>
           <p className="secondary">Ingresá con una de las dos cuentas autorizadas.</p>
-          <form action={logout}><button type="submit" className="primary-button">Cerrar sesión</button></form>
+          <form action={logout}><FormLoading operation="logout" /><button type="submit" className="primary-button">Cerrar sesión</button></form>
         </> : <>
           {(kind === "unavailable" || reason === "unavailable") &&
             <p role="alert" className="auth-error">{connectionMessage}</p>}

@@ -146,7 +146,7 @@ describe("client table and filter accessibility", () => {
     navigation.refresh.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<ClientList result={{ kind: "found", filters, rows: [confirmed], count: 1 }} />);
     await userEvent.click(screen.getByRole("button", { name: "Actualizar" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    expect(screen.getByRole("status")).toHaveTextContent("Consultando clientes…");
     await act(async () => finish());
     expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos actualizar");

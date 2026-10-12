@@ -73,7 +73,7 @@ describe("approved client form interaction", () => {
     const user = userEvent.setup(); await user.type(screen.getByLabelText("Nombre *"), "Prospecto");
     await user.click(screen.getByRole("button", { name: "Crear cliente" }));
     expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    expect(screen.getByRole("status")).toHaveTextContent("Guardando cliente…");
     await act(async () => finish({ status: "error", message: "Conexión", retry: true }));
   });
   it("retains entered data, locks same intent after ambiguous error and reuses request UUID", async () => {

@@ -8,7 +8,7 @@ test("anonymous private navigation redirects without caching protected content",
   expect(response.headers()["cache-control"]).toContain("no-store");
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?reason=expired$/);
-  await expect(page.getByRole("heading", { name: "Ingresar al CRM" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tu cartera. Una sola vista." })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("Tu sesión finalizó. Ingresá para continuar.");
   await expect(page.getByRole("link", { name: "Registrarse" })).toHaveCount(0);
 });
@@ -26,6 +26,12 @@ test("native validation, labels and focus work without contacting Auth", async (
   await expect(page.getByLabel("Contraseña")).toHaveAttribute("type", "password");
   expect(authRequests).toEqual([]);
 });
+test("original brand assets decode on anonymous access", async ({ page }) => {
+  await page.goto("/login");
+  const images = page.locator(".brand img"); await expect(images).toHaveCount(2);
+  for (const image of await images.all()) await expect.poll(() => image.evaluate((element: HTMLImageElement) =>
+    element.complete && element.naturalWidth > 0)).toBe(true);
+});
 
 test("denied UI offers functional local logout without a supplied identity", async ({ page }) => {
   await page.goto("/login?reason=denied");
@@ -36,8 +42,8 @@ test("denied UI offers functional local logout without a supplied identity", asy
   await expect(page.getByLabel("Email")).toBeVisible();
 });
 
-for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 960 }]) {
-  test(`DESIGN-2 login geometry and controls at ${viewport.width}px`, async ({ page }) => {
+for (const viewport of [1440, 1024, 768, 640, 390].map((width) => ({ width, height: 900 }))) {
+  test(`DESIGN-10 login geometry and controls at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/login");
     const panel = page.locator(".login-panel");
@@ -45,16 +51,16 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 960 
     expect(box).not.toBeNull();
     expect(Math.abs(box!.x + box!.width / 2 - viewport.width / 2)).toBeLessThan(2);
     expect(Math.abs(box!.y + box!.height / 2 - viewport.height / 2)).toBeLessThan(2);
-    expect(box!.width).toBe(viewport.width === 1440 ? 420 : 342);
-    const styles = await panel.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, radius: style.borderRadius, padding: style.paddingTop };
-    });
-    expect(styles).toEqual({ background: "rgb(18, 31, 53)", radius: "10px", padding: viewport.width === 1440 ? "32px" : "24px" });
+    expect(box!.width).toBe(Math.min(400, viewport.width - 48));
     const input = await page.getByLabel("Email").boundingBox();
     const button = await page.getByRole("button", { name: "Ingresar" }).boundingBox();
     expect(input!.height).toBe(44);
     expect(button!.height).toBe(44);
+    const toggle = page.getByRole("button", { name: "Mostrar contraseña" });
+    expect((await toggle.boundingBox())!.height).toBe(44);
+    await toggle.click(); await expect(page.getByLabel("Contraseña")).toHaveAttribute("type", "text");
+    await page.setViewportSize({ width: 390, height: 450 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }

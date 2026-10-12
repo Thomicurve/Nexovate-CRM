@@ -18,7 +18,7 @@ function destination(href: ComponentProps<typeof Link>["href"]) {
 
 export function LoadingLink(props: ComponentProps<typeof Link>) {
   const router = useRouter(), [pending, transition] = useTransition();
-  usePendingLoading(pending);
+  usePendingLoading(pending, "navigation");
   return <Link {...props} onNavigate={(event) => {
     let cancelled = false;
     props.onNavigate?.({ preventDefault: () => { cancelled = true; } });
@@ -30,7 +30,7 @@ export function LoadingLink(props: ComponentProps<typeof Link>) {
 }
 export function useLoadingFormNavigation() {
   const router = useRouter(), [pending, transition] = useTransition();
-  usePendingLoading(pending);
+  usePendingLoading(pending, "navigation");
   return (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget, data = new FormData(form);

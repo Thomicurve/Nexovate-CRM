@@ -15,6 +15,7 @@ it("navigation preserves query, hash and scroll and clears loading after complet
   fireEvent.click(screen.getByRole("link"));
   expect(navigation.push).toHaveBeenLastCalledWith("/clientes?estado=Contactado&estado=Cerrado&pagina=2#list", { scroll: false });
   expect(screen.getByRole("dialog", { name: "Cargando" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Abriendo página…" })).toBeVisible();
   await act(async () => finish()); expect(screen.queryByRole("dialog")).toBeNull();
 });
 it("cancelled and modified link navigation creates no operation", () => {

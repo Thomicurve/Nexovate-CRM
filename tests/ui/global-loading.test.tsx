@@ -1,7 +1,9 @@
 import { act, render, screen } from "@testing-library/react";
 import { useLayoutEffect, useState } from "react";
-import { beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GlobalLoading, useLoadingOperation, usePendingLoading } from "@/components/ui/global-loading";
+vi.mock("@/components/ui/motion", () => ({ usePanelMotion() {} }));
+afterEach(() => vi.useRealTimers());
 
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.setAttribute("open", ""); this.focus(); } });
@@ -40,4 +42,29 @@ it("unmount releases an unfinished action and late settlement is harmless", asyn
   act(remove); expect(screen.queryByRole("dialog")).toBeNull();
   await act(async () => { finish(); await result; });
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+it("names overlapping owners and preserves write guidance until that owner settles", () => {
+  vi.useFakeTimers();
+  function Owner({ active, operation }: { active: boolean; operation: "save" | "clients" }) {
+    usePendingLoading(active, operation); return null;
+  }
+  const view = render(<><GlobalLoading /><Owner active operation="save" /><Owner active operation="clients" /></>);
+  expect(screen.getByRole("status")).toHaveTextContent("Guardando cliente…");
+  expect(screen.getByRole("status")).toHaveTextContent("Consultando clientes…");
+  act(() => vi.advanceTimersByTime(8000));
+  expect(screen.getByText(/No vuelvas a enviar/)).toBeVisible();
+  view.rerender(<><GlobalLoading /><Owner active operation="save" /><Owner active={false} operation="clients" /></>);
+  expect(screen.getByRole("status")).not.toHaveTextContent("Consultando clientes…");
+  expect(screen.getByRole("status")).toHaveTextContent("Guardando cliente…");
+  expect(screen.queryByRole("button")).toBeNull();
+  view.unmount(); expect(screen.queryByRole("dialog")).toBeNull();
+});
+it("long read waits provide guidance without claiming a backend confirmation or offering a write retry", () => {
+  vi.useFakeTimers();
+  function Owner() { usePendingLoading(true, "metrics"); return null; }
+  render(<><GlobalLoading /><Owner /></>);
+  expect(screen.getByRole("status")).toHaveTextContent("Consultando métricas…");
+  act(() => vi.advanceTimersByTime(8000));
+  expect(screen.getByText(/La carga está tardando/)).toBeVisible();
+  expect(screen.queryByText(/No vuelvas a enviar/)).toBeNull();
 });

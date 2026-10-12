@@ -10,7 +10,7 @@ export type LoginAction = (state: LoginState, form: FormData) => Promise<LoginSt
 export function LoginForm({ action, expired = false }: { action: LoginAction; expired?: boolean }) {
   const [state, formAction, pending] = useActionState(action, { status: "idle" });
   const [showPassword, setShowPassword] = useState(false);
-  usePendingLoading(pending);
+  usePendingLoading(pending, "login");
   return (
     <form action={formAction} className="login-form" aria-busy={pending}>
       <FormField id="email" label="Email">

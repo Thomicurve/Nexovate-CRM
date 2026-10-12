@@ -16,7 +16,7 @@ function Controls({ query, from, until, refreshing }: { query: MetricsQuery; fro
   const [draftFrom, setFrom] = useState(from), [draftUntil, setUntil] = useState(until);
   const [error, setError] = useState(""), [draftGroup, setGroup] = useState(query.grouping);
   const [pending, startTransition] = useTransition();
-  usePendingLoading(pending);
+  usePendingLoading(pending, "metrics");
   function apply(next: MetricsQuery) {
     const parsed = parseMetricsQuery({ desde: next.from, hasta: next.until, agrupacion: next.grouping });
     if (!parsed.ok) { setError(parsed.message); return; }
@@ -62,9 +62,9 @@ export function Dashboard({ result: incoming, params }: { result: MetricsResult;
   const [result, setResult] = useState(incoming), [seenIncoming, setSeenIncoming] = useState(incoming);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
   const [pending, startTransition] = useTransition();
-  usePendingLoading(pending);
+  usePendingLoading(pending, "metrics");
   const [seenPending, setSeenPending] = useState(false);
-  usePendingLoading(refreshing);
+  usePendingLoading(refreshing, "metrics");
   const refreshGuard = useRef(false);
   useLayoutEffect(() => { refreshGuard.current = refreshing; }, [refreshing]);
   if (incoming !== seenIncoming) {

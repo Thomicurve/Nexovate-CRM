@@ -16,7 +16,7 @@ export function ClientModal({ onClose, onSaved, ...form }: Props) {
   const [locked, setLocked] = useState(false), [closing, setClosing] = useState(false);
   const exit = useRef(false);
   const [navigating, transition] = useTransition();
-  usePendingLoading(navigating);
+  usePendingLoading(navigating, "navigation");
   usePanelMotion(dialog, true);
   useEffect(() => {
     const surface = dialog.current!, opener = document.activeElement as HTMLElement | null;
