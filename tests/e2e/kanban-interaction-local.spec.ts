@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
@@ -9,6 +9,23 @@ import { KANBAN_STATUSES } from "../../src/lib/clients/column-order";
 import { confirmed } from "../clients/fixture";
 
 const storageKey = "crm:kanban-column-order:v1";
+async function activateKeyboardDrag(page: Page, handle: Locator) {
+  await handle.focus(); await expect(handle).toBeFocused();
+  await page.evaluate(() => {
+    const state = window as unknown as { keyboardSensorAttached: boolean };
+    state.keyboardSensorAttached = false;
+    const original = document.addEventListener;
+    document.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+      original.call(document, type, listener, options);
+      // dnd-kit starts dragging before its deferred document keyboard listener attaches.
+      if (type === "keydown" && typeof listener === "function" && listener.name === "bound handleKeyDown") {
+        state.keyboardSensorAttached = true; document.addEventListener = original;
+      }
+    } as typeof document.addEventListener;
+  });
+  await page.keyboard.press("Space"); await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { keyboardSensorAttached: boolean }).keyboardSensorAttached)).toBe(true);
+}
 let server: ViteDevServer;
 test.beforeAll(async () => {
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-crm-modal",
@@ -92,12 +109,12 @@ test("cards open editable data while drag, cancel, selection and modifiers prese
   await pointerDrag(page, { x: body!.x + 20, y: body!.y + 5 }, { x: target!.x + 100, y: target!.y + 100 }, true);
   await expect(page.getByRole("dialog")).toHaveCount(0); expect(data.moves).toHaveLength(0);
   const handle = card(page).getByRole("button", { name: "Arrastrar cliente Confirmado" });
-  await handle.focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowRight"); await expect(page.getByText("Soltar aquí")).toBeVisible();
+  await activateKeyboardDrag(page, handle); await page.keyboard.press("ArrowRight"); await expect(page.getByText("Soltar aquí")).toBeVisible();
   await page.keyboard.press("Escape"); await expect(handle).toBeFocused(); await expect(page.getByRole("dialog")).toHaveCount(0);
   await pointerDrag(page, { x: body!.x + 20, y: body!.y + 5 }, { x: target!.x + 100, y: target!.y + 100 });
   await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); expect(data.moves[0].to).toBe("Interesado");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  data.uncertain(true); await handle.focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Space");
+  data.uncertain(true); await activateKeyboardDrag(page, handle); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Space");
   await expect(page.getByRole("alert")).toHaveText("Movimiento sin confirmar");
   await expect(open).toBeDisabled(); await expect(page.getByRole("button", { name: "Arrastrar columna Contactado" })).toBeDisabled();
   await expect(page.getByRole("radio", { name: "Tabla", exact: true })).toBeDisabled();
@@ -115,10 +132,10 @@ test("column header pointer and keyboard reorder persist without querying, corru
   const first = ["Cerrado", "Contactado", "Interesado", "Reunión agendada", "Sin respuesta", "Respuesta negativa"];
   await expect(headings(page)).toHaveText(first);
   const handle = page.getByRole("button", { name: "Arrastrar columna Interesado" }); await handle.focus();
-  await page.keyboard.press("Space"); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Space");
+  await activateKeyboardDrag(page, handle); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Space");
   const next = ["Cerrado", "Interesado", "Contactado", "Reunión agendada", "Sin respuesta", "Respuesta negativa"];
   await expect(headings(page)).toHaveText(next); expect(data.reads).toHaveLength(baseline); expect(data.moves).toEqual([]);
-  await handle.focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Escape");
+  await activateKeyboardDrag(page, handle); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Escape");
   await expect(headings(page)).toHaveText(next); await expect(handle).toBeFocused();
   expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), storageKey)).toEqual(next);
   await page.reload(); await expect(headings(page)).toHaveText(next);
@@ -144,7 +161,7 @@ test("mobile touch scrolling does not open cards; menu and keyboard destinations
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before); await expect(page.getByRole("dialog")).toHaveCount(0); expect(data.moves).toEqual([]);
   const handle = card(page).getByRole("button", { name: "Arrastrar cliente Confirmado" }); await handle.focus();
   expect((await handle.boundingBox())!.width).toBe(44); expect((await handle.boundingBox())!.height).toBe(44);
-  await page.keyboard.press("Space"); await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await activateKeyboardDrag(page, handle);
   await page.keyboard.press("ArrowRight"); await expect(visible.getByRole("radio", { name: /^Sin respuesta,/ })).toHaveAttribute("aria-checked", "true"); await page.keyboard.press("Space");
   await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); expect(data.moves[0].to).toBe("Sin respuesta");
   const menu = page.getByRole("button", { name: "Ordenar etapa Sin respuesta" }); await menu.click();
@@ -161,7 +178,7 @@ test("denied browser storage falls back to six columns and still permits orderin
   test.setTimeout(90_000); const data = await fixtures(page); await page.setViewportSize({ width: 1920, height: 1000 });
   await page.addInitScript(() => { Object.defineProperty(window, "localStorage", { get() { throw new DOMException("Denied", "SecurityError"); } }); });
   await page.goto("/clientes"); await expect(headings(page)).toHaveText([...KANBAN_STATUSES]);
-  await page.getByRole("button", { name: "Arrastrar columna Interesado" }).focus(); await page.keyboard.press("Space"); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Space");
+  await activateKeyboardDrag(page, page.getByRole("button", { name: "Arrastrar columna Interesado" })); await page.keyboard.press("ArrowLeft"); await page.keyboard.press("Space");
   await expect(headings(page)).toHaveText(["Interesado", "Contactado", ...KANBAN_STATUSES.slice(2)]);
   expect(data.moves).toEqual([]); expect(data.forbidden).toEqual([]); expect(data.errors).toEqual([]);
 });

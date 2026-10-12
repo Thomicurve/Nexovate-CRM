@@ -9,7 +9,7 @@
 - **User's mode choice:** «Aprobar y ejecutar en CONTINUOUS (recomendado)» (2026-10-11).
 - **Plan approval:** APPROVE_CURRENT_PLAN.
 - **Approval reference:** respuesta explícita del usuario al checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5, seis etapas, TASK-001 inicial, rama y commits locales; questionItemId `[request_user_input_async,call_W2gUQJpdBfP1epAleUvSbO2p,0]`. Autoriza ejecución secuencial de TASK-001–006, pruebas/revisión/commits y reutilización de los dos logos originales según PLAN-5. Sin push/PR/merge/deploy.
-- **Estado de recuperación local:** CHECKING TASK-003; writer y revisión STOPPED, candidato aprobado y Delivery pendiente. TASK-001 y TASK-002 aceptadas y entregadas, baselines preservados. Registro mínimo local por memoria temporalmente no disponible.
+- **Estado de recuperación local:** CHECKING TASK-004; candidato14 comprobado y aprobado por review_002. Todos los workers detenidos, entrega local pendiente. TASK-001–003 aceptadas y entregadas, baselines preservados. Registro mínimo local por memoria temporalmente no disponible.
 - **First task:** TASK-001 tras aprobación y preparación de rama.
 - **TDD and checks:** ON para comportamiento, según convención explícita en `specs/crm-interaction/task.md`. Vitest: RED observado antes de implementar y GREEN después. Cambios puramente visuales necesitan comprobación estructural, contraste/reflujo y revisión nativa, sin tests que repitan CSS. Playwright con fixtures aisladas para flujos integrados; capturas, vídeo y trace desactivados.
 - **Delivery propuesta:** una rama `codex/crm-ui-ux-vercel`, preparada por Implementer Delivery después de aprobación, y un commit local por WU aceptada. Sin worktrees ni ramas por tarea. Push, PR, merge y deploy requieren autoridad separada. Sólo Implementer escribe aplicación; Orchestrator mantiene estos dos documentos. Diseñador trabaja únicamente en Pencil.
@@ -64,7 +64,7 @@ Migrar listado/tabla, búsqueda visible de nombre/empresa, panel contextual de f
 
 ### TASK-003 — Kanban claro y operable
 
-**Status:** IN_PROGRESS · **Criteria:** AC-005, AC-011, AC-013, AC-014, AC-015
+**Status:** DONE · **Criteria:** AC-005, AC-011, AC-013, AC-014, AC-015
 
 Migrar columnas/tarjetas y sus menús, distinguir las seis etapas con acentos de color y nombres visibles (encabezado/contador/selector móvil), reforzar jerarquía de tarjetas (nombre/empresa/rubro/metadatos) según referencia y sólo campos existentes, permitir reordenación por clic/teclado en escritorio, recordar etapa móvil, vacíos compactos y contadores sobre resultados actuales. Paleta general, dashboard y diseño de columnas aceptados se conservan.
 
@@ -77,18 +77,32 @@ Migrar columnas/tarjetas y sus menús, distinguir las seis etapas con acentos de
 
 **Review reference:** review_002 WU-003 APPROVED/READY_TO_CONTINUE/STOPPED para digest7 vigente, sin hallazgos ni gaps bloqueantes. Blobs reales/diff confirman invariantes comerciales y pruebas previas preservados; sin nuevo riesgo alto que exija verificación adicional. Fuentes compatibles con DESIGN-10 y AC-005/011/013/014/015, reutilizando recibos writer. .gitignore ajeno SHA256 `D50FA6D29618A1B9151CA9EAEB4BCFC124F8A88CA8834369A3AC1C59021DDE5D`, preservado y excluido.
 
+**Commit reference:** Delivery COMPLETED/STOPPED, `a07d2240aa25237a86325834e4c373b37e89af85`, padre `6465c3be3dc8410044c993ee9163a12a95526d1e`. Ocho paths explícitos (siete candidato + task.md), 310+/76−; blobs normalizados/raw/index/baselines comprobados, sin publicación. TASK-003 DONE habilita TASK-004.
+
 ### TASK-004 — Formularios, conflictos y eliminación
 
-**Status:** TODO · **Criteria:** AC-006, AC-007, AC-008, AC-011, AC-013, AC-014
+**Status:** IN_PROGRESS · **Criteria:** AC-006, AC-007, AC-008, AC-011, AC-013, AC-014
 
 Migrar formularios/diálogo, resumen de errores enlazado, protección de borradores al salir, comparación explícita ante conflicto y confirmación de eliminación accesible como alternativa al gesto mantenido.
 
 - **Depends on:** TASK-002, TASK-003.
-- **Allowed files:** `src/components/clients/client-form.tsx`, `client-modal.tsx`, `clients.module.css`, componentes de confirmación/conflicto nuevos; `src/components/ui/HoldButton.tsx`; rutas nueva/editar cliente y auxiliares de navegación existentes necesarios; tests de formularios/modal/conflictos/delete y E2E aislado. `src/lib/clients/{mutations,delete,moves}.ts` sólo si adaptación mínima imprescindible, conservando invariantes y con prueba independiente.
+- **Allowed files:** `src/components/clients/client-form.tsx`, `client-modal.tsx`, `clients.module.css`, componentes de confirmación/conflicto nuevos; `src/components/ui/HoldButton.tsx`; rutas nueva/editar cliente y auxiliares de navegación existentes necesarios (`client-list.tsx` sólo coordinación restoreView/modal/History, conservando guardas de movimiento); tests de formularios/modal/conflictos/delete y E2E aislado. `src/lib/clients/{mutations,delete,moves}.ts` sólo si adaptación mínima imprescindible, conservando invariantes y con prueba independiente.
 - **Done when:** salidas con/sin cambios e in-flight distinguidas; borrador permanece tras conflicto/cancelar salida; se comparan campos y usuario resuelve; errores enfocados/descriptos; eliminación por teclado sin temporizador comparte guardas. Sin retry inseguro ni doble envío.
 - **Checks:** RED/GREEN de pérdida de borrador, validación, conflictos, intención única y resultado incierto; E2E aislado de confirmación/salida; lint/typecheck; verificación independiente obligatoria de seguridad/concurrencia antes de review/commit.
 - **Work units:** WU-004, coherencia del borrador/mutación + pruebas, 650–1.100 líneas/6–10 archivos, confianza media-baja; commit `feat(clients): protect drafts and make conflict and delete flows accessible`.
-- **Result reference:** pendiente.
+- **Result reference:** Designer READ-ONLY DESIGN_APPROVED/STOPPED revalidó NCQd8/dGwWf/krCtl/yQIxf/YVCNo sin editar. Writer IMPLEMENTED/STOPPED sobre HEAD `a07d2240aa25237a86325834e4c373b37e89af85`: candidato13 SHA256 `46b29599fd5232adf179a09ffa5e64a4fe1403f7160714e16f2faa65b00ab904`, 559+/102−. RED8 más eliminación normal ausente; GREEN75/9 y consumidores inline16/2; E2E modal6 + inline1, delete3, vista3 y Kanban5. Lint/tsc PASS Node22/npm10, baselines3/index intactos. Historia nativa/fallback, foco tras carga, conflictos/fechas y controles/reflujo390/640/768/1024/1440 comprobados. Vista efectiva390×450 equivale a reflujo200%, sin prueba de zoom nativo/NextRSC/SQL externo. Sin nuevas fronteras servidor/deps: build previo reutilizado. Verificación independiente y review/commit pendientes.
+
+**Implementation choice:** guardas History usan posición nativa cuando existe (MDN `NavigationHistoryEntry.index`, documentación oficial Next History). En navegadores antiguos sin índice, se admite restauración conservadora de una entrada del editor con su state original, sin sobrescribir state del destino; protege borrador, advierte y sólo continúa la traversal tras descartar. Puede sustituir historial hacia delante; comprobar cancelación repetida sin crecimiento/bucles. La cautela inicial de cero entradas adicionales no era un criterio aprobado y se retiró; no cambia AC-006/014 ni contratos comerciales. Fallback y precisión de fechas en conflicto requieren prueba independiente. Writer observó RED8 funcionales de resumen/conflicto/guardas y RED separado de eliminación normal; 24 casos previos PASS. Implementación en curso.
+
+**Integration note:** primer GREEN33 formulario/modal/delete-form y tsc PASS. El auxiliar restoreView del listado reemplazaba estado/destino aun al descartar un modal; adaptación mínima autorizada dentro de auxiliares de navegación, con regresión de movimiento y consumidores History. Hasta13 paths por helper/harness existentes, sin delta material de funcionalidad/rango de líneas. Regresión Kanban4/5 reveló sincronización: dependencia primaria local difiere listener KeyboardSensor después de handleStart/aria-pressed. Harness espera registro real del listener, sin timeout arbitrario y con destino exacto; afectados2/2 PASS, cierre de pruebas y verificación independiente pendientes.
+
+**Verification reference:** verify_004 PARTIAL/STOPPED: candidato13 intacto, GREEN75/9, modalE2E7/24,4s, deleteE2E3/20,9s, lint/tsc PASS e identidad/baselines/index verificados. Defecto AC-006 demostrado por flujo estático: client-form botón «Volver a Clientes» tras conflicto de borrado desbloquea y llama onCancel/router.replace directamente, evitando advertencia y perdiendo borrador tanto en modal inline como ruta directa. Corrección acotada y reproducción RED/GREEN requeridas antes de revalidación afectada/review. Otros recibos se reutilizan si no invalidados; sin writes del verificador.
+
+**Corrective candidate:** writer IMPLEMENTED/STOPPED, candidato14 SHA256 `4cbf6e1389781920d9037f94da9da830b8f18777edd5f094e4193f88669d40cf`, 650+/111− incluyendo nuevos; extensión limitada al harness de borrado para reproducción. RED2/8 demuestra pérdida inline/direct; GREEN37/3, deleteE2E7/29,1s, lint/tsc PASS. Tras conflicto, «Conservar borrador» conserva campos bloqueados y explica revisión en Clientes; sólo descarte confirmado libera el bloqueo antes de salir. Salida limpia directa, pending/unknown intactos. Sin cambios comerciales/backend, baselines3/índice intactos; revalidación independiente afectada pendiente.
+
+**Corrective verification:** verify_004 COMPLETED/STOPPED, mismo candidato14 intacto. Independientes GREEN37/3, deleteE2E7/25,7s, lint/tsc PASS; defecto resuelto sin nuevos hallazgos. Reutiliza recibos restantes75/9, modal7/vista3/Kanban5 no invalidados. Sandbox cache/localhost falló; repeticiones exactas escaladas aprobadas PASS. Identidad/index/baselines3 preservados, sólo .last-run.json residual; límites de fixtures/NextRSC/SQL/zoom nativo conservados. Revisión pendiente.
+
+**Review reference:** review_002 WU-004 APPROVED/READY_TO_CONTINUE/STOPPED, mismo digest14; doce blobs baseline reales SHA1 validados, sin hallazgos ni gaps bloqueantes. AC-006/007/008/011/013/014 cubiertos, diseño nativo compatible y evidencia independiente vigente. Sin cambios comerciales/backend/dependencias. Entrega local pendiente.
 
 ### TASK-005 — Dashboard útil en todos los anchos
 
@@ -118,8 +132,8 @@ Completar feedback de operaciones, esperas y recuperación, límites error/not-f
 
 ## Próximo paso
 
-- **Next task:** TASK-003; IN_PROGRESS, única tarea seleccionada.
+- **Next task:** TASK-004; IN_PROGRESS, única tarea seleccionada.
 - **Continuation:** COVERED_BY_CONTINUOUS_PLAN.
-- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; TASK-001 y TASK-002 comprobadas, revisadas y entregadas mediante commits locales verificados. Próxima TASK-003.
-- **Consumed by:** revalidación nativa y dispatch único Implementer TASK-003; permiso continuo válido únicamente para PLAN-5.
+- **User decision:** checkpoint conjunto DESIGN-10/SPEC-5/PLAN-5 aprobado y CONTINUOUS explícito; TASK-001–003 comprobadas, revisadas y entregadas mediante commits locales verificados. Próxima TASK-004.
+- **Consumed by:** revalidación nativa y dispatch único Implementer TASK-004; permiso continuo válido únicamente para PLAN-5.
 - **Recuperación local:** estos documentos y el documento nativo mantienen el alcance. Memoria atribuida al agente temporalmente no disponible: registro de identidad runtime no confirmado; no intentar guardar sin registro del host.

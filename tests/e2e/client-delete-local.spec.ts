@@ -10,14 +10,48 @@ test.beforeAll(async () => {
     plugins: [react(), { name: "loading-boundaries", enforce: "pre",
       resolveId(id) { if (["next/link", "next/navigation"].includes(id)) return `\0${id}`; },
       load(id) {
-        if (id === "\0next/navigation") return "export const useRouter=()=>({replace(){},push(){}});";
+        if (id === "\0next/navigation") return "export const useRouter=()=>({replace(path){window.location.replace(path)},push(path){window.location.assign(path)}});";
         if (id === "\0next/link") return "import {createElement} from 'react';export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
-        if (new URL(request.url!, "http://local.invalid").pathname !== "/") return next();
+        if (!["/", "/clientes"].includes(new URL(request.url!, "http://local.invalid").pathname)) return next();
         response.setHeader("Content-Type", "text/html"); response.end(await vite.transformIndexHtml("/", '<html lang="es"><body><div id="root"></div><script type="module" src="/tests/e2e/client-delete-harness.tsx"></script></body></html>'));
       }); },
     }] }); await server.listen();
+});
+
+for (const direct of [false, true]) for (const dirty of [false, true]) test(`delete conflict exit protects draft, direct=${direct}, dirty=${dirty}`, async ({ page }) => {
+  await page.goto(`/?result=conflict${direct ? "&direct=1" : ""}`);
+  if (!direct) await page.getByRole("button", { name: "Editar", exact: true }).click();
+  const form = page.getByRole("dialog", { name: "Editar cliente" }), initialURL = page.url();
+  if (dirty) await form.getByLabel("Nombre *").fill("Borrador ante conflicto");
+  await form.getByRole("button", { name: "Borrar con confirmación" }).click();
+  await page.getByRole("button", { name: "Confirmar borrado" }).focus(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Cargando" })).toBeVisible();
+  await page.keyboard.press("Escape"); await expect(form).toBeVisible();
+  await expect(form.getByRole("button", { name: "Volver a Clientes" })).toHaveCount(0);
+  expect(await page.evaluate(() => window.deletionHarness.calls.length)).toBe(1);
+  await page.evaluate(() => window.deletionHarness.settle());
+  const back = form.getByRole("button", { name: "Volver a Clientes" });
+  await expect(back).toBeVisible(); await back.focus(); await page.keyboard.press("Enter");
+  if (dirty) {
+    const warning = page.getByRole("dialog", { name: "¿Descartar los cambios?" }); await expect(warning).toBeVisible();
+    await expect(page).toHaveURL(initialURL);
+    await expect(warning.getByRole("button", { name: "Conservar borrador" })).toBeFocused();
+    await expect(warning).toContainText("campos bloqueados"); await page.keyboard.press("Escape");
+    await expect(back).toBeFocused(); await expect(form.getByLabel("Nombre *")).toHaveValue("Borrador ante conflicto");
+    await expect(form.getByLabel("Nombre *")).toBeDisabled();
+    await expect(form.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+    await expect(form.getByRole("button", { name: "Cerrar formulario" })).toBeDisabled();
+    await expect(form.getByRole("button", { name: /Reintentar borrado|Mantener para borrar|Borrar con confirmación/ })).toHaveCount(0);
+    await page.keyboard.press("Enter"); await page.getByRole("button", { name: "Descartar" }).focus(); await page.keyboard.press("Enter");
+  }
+  await expect(form).toHaveCount(0);
+  if (direct) await expect(page).toHaveURL("http://127.0.0.1:3117/clientes?nombre=Confirmado&vista=tabla");
+  else {
+    await expect(page).toHaveURL(initialURL); await expect(page.getByRole("button", { name: "Editar", exact: true })).toBeFocused();
+    expect(await page.evaluate(() => window.deletionHarness.calls.length)).toBe(1);
+  }
 });
 test.afterAll(async () => { await server?.close(); });
 for (const mobile of [false, true]) test(`continuous hold and confirmed retry mobile=${mobile}`, async ({ page }) => {
@@ -68,5 +102,29 @@ for (const mobile of [false, true]) test(`continuous hold and confirmed retry mo
   await page.evaluate(() => window.deletionHarness.settle());
   await expect(page.getByRole("status")).toContainText("Cliente eliminado");
   await expect(page.locator("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Editar", exact: true })).toBeFocused();
+});
+
+test("ordinary keyboard deletion shares the hold intent and pending/uncertain lock", async ({ page }) => {
+  await page.goto("/"); await page.getByRole("button", { name: "Editar", exact: true }).click();
+  await page.getByRole("button", { name: "Borrar con confirmación" }).focus(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Borrar Confirmado" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Seguir editando" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Borrar con confirmación" })).toBeFocused();
+  expect(await page.evaluate(() => window.deletionHarness.calls.length)).toBe(0);
+  await page.keyboard.press("Enter"); await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Confirmar borrado" })).toBeFocused(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Cargando" })).toBeVisible();
+  expect(await page.evaluate(() => window.deletionHarness.calls.length)).toBe(1);
+  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog", { name: "Cargando" })).toBeVisible();
+  await page.evaluate(() => window.deletionHarness.settle());
+  await expect(page.getByRole("button", { name: "Mantener para borrar" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cerrar formulario" })).toBeDisabled();
+  await page.getByRole("button", { name: "Reintentar borrado" }).focus(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Cargando" })).toBeVisible();
+  expect(await page.evaluate(() => window.deletionHarness.calls[0] === window.deletionHarness.calls[1])).toBe(true);
+  await page.evaluate(() => window.deletionHarness.settle());
+  await expect(page.getByRole("status")).toContainText("Cliente eliminado");
   await expect(page.getByRole("button", { name: "Editar", exact: true })).toBeFocused();
 });

@@ -21,7 +21,7 @@ describe("client modal lifecycle and guarded form", () => {
     expect(screen.getByLabelText("Nombre *")).toHaveFocus();
     expect(document.body.style.overflow).toBe("hidden");
     await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
     expect(screen.getByRole("dialog")).toHaveAttribute("data-closing", "true");
     expect(screen.getByRole("button", { name: "Crear cliente" })).toBeDisabled();
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
@@ -52,10 +52,10 @@ describe("client modal lifecycle and guarded form", () => {
     const action = vi.fn().mockResolvedValueOnce({ status: "conflict", confirmed }).mockResolvedValueOnce({ status: "success", client: confirmed });
     const onSaved = vi.fn(); render(<ClientModal {...props} client={{ ...confirmed, version: 1 }} action={action} onSaved={onSaved} />);
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("se actualizó");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tus cambios no se guardaron");
     expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Cerrar formulario" })).toBeEnabled();
-    await userEvent.click(screen.getByRole("button", { name: "Volver a editar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Usar datos actuales" }));
     expect(screen.getByLabelText("Nombre *")).toHaveValue(confirmed.name);
     expect(screen.getByLabelText("Nombre *")).toHaveFocus();
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -68,4 +68,30 @@ describe("client modal lifecycle and guarded form", () => {
     fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledExactlyOnceWith("/clientes"));
   });
+  it.each(["close", "cancel", "escape"])("protects dirty draft through %s and permits explicit discard", async (source) => {
+    const onClose = vi.fn(); render(<ClientModal {...props} action={vi.fn()} onClose={onClose} />);
+    const user = userEvent.setup(); await user.type(screen.getByLabelText("Nombre *"), "Sin guardar");
+    const opener = screen.getByRole("button", { name: source === "cancel" ? "Cancelar" : "Cerrar formulario" });
+    if (source === "escape") fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+    else await user.click(opener);
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole("button", { name: "Seguir editando" }));
+    expect(screen.getByLabelText("Nombre *")).toHaveValue("Sin guardar");
+    if (source !== "escape") expect(opener).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await user.click(screen.getByRole("button", { name: "Descartar" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it("warns before unloading a dirty draft and stops warning after reverting", async () => {
+    render(<ClientModal {...props} action={vi.fn()} onClose={vi.fn()} />);
+    const input = screen.getByLabelText("Nombre *"), user = userEvent.setup();
+    await user.type(input, "Borrador");
+    const dirty = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+    await user.clear(input);
+    const clean = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+  });
 });
+
+vi.mock("@/components/ui/motion", () => ({ usePanelMotion: vi.fn() }));

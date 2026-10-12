@@ -17,6 +17,7 @@ import RubberSegment from "@/components/ui/RubberSegment";
 import { ClientTable } from "./client-table";
 import { ClientDetails } from "./client-details";
 import { ClientFilters } from "./client-filters";
+import { focusAfterLoading } from "./client-form-exit";
 
 export function ClientList({ result: incoming }: { result: ListResult }) {
   const router = useRouter();
@@ -37,8 +38,9 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   useEffect(() => {
     const saved = savedFocus.current;
     if (!saved || modal || pending || result === saved.snapshot) return;
-    if (!saved.opener?.isConnected && document.activeElement === document.body) currentView.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    // Let modal/loading cleanups finish before choosing a surviving list control.
     savedFocus.current = null;
+    if (!saved.opener?.isConnected && (document.activeElement === document.body || document.activeElement?.matches("dialog.global-loading"))) return focusAfterLoading(() => currentView.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? null);
   }, [result, modal, pending]);
   if (incoming !== seenIncoming && !locked) {
     setSeenIncoming(incoming);
@@ -70,7 +72,14 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const returnTo = listPath(applied);
   useEffect(() => {
     const restoreView = () => {
-      if (locked || modal || detail) { window.history.replaceState(null, "", returnTo); return; }
+      // The mounted editor guards traversal before this consumer; never overwrite
+      // the destination or Next's history state after an explicit discard.
+      if (modal) {
+        setModal(null);
+        setView(new URLSearchParams(window.location.search).get("vista") === "tabla" ? "tabla" : "kanban");
+        return;
+      }
+      if (locked || detail) { window.history.replaceState(window.history.state, "", returnTo); return; }
       setView(new URLSearchParams(window.location.search).get("vista") === "tabla" ? "tabla" : "kanban");
     };
     window.addEventListener("popstate", restoreView);

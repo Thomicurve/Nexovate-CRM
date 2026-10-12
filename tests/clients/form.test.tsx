@@ -5,7 +5,7 @@ import { NotificationProvider } from "@/components/ui/notifications";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientForm } from "@/components/clients/client-form";
-import type { SaveState } from "@/lib/clients/model";
+import { normalizeForm, type SaveState } from "@/lib/clients/model";
 import { confirmed, requestId } from "./fixture";
 
 const props = { requestId, initialContact: "2026-10-07T12:30", returnTo: "/clientes?nombre=Socio" };
@@ -91,10 +91,10 @@ describe("approved client form interaction", () => {
     const action = vi.fn().mockResolvedValue({ status: "conflict", confirmed });
     render(<ClientForm {...props} client={{ ...confirmed, version: 1 }} action={action} />);
     const user = userEvent.setup(); await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Este cliente se actualizó mientras lo editabas.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tus cambios no se guardaron.");
     expect(screen.getByText("Versión confirmada: 2")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Guardar cambios" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Volver a editar" }));
+    await user.click(screen.getByRole("button", { name: "Usar datos actuales" }));
     expect(screen.getByLabelText("Nombre *")).toHaveFocus();
     expect(screen.getByLabelText("Nombre *")).toHaveValue("Confirmado");
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
@@ -116,4 +116,52 @@ describe("approved client form interaction", () => {
     expect(screen.getByLabelText("Nombre *")).toHaveValue("Conservar");
     expect(screen.getByLabelText("Nombre *")).toHaveAttribute("readonly");
   });
+  it("focuses a linked error summary only after invalid submission", async () => {
+    render(<ClientForm {...props} client={confirmed} action={vi.fn().mockResolvedValue({ status: "invalid",
+      errors: { name: "Nombre obligatorio", status: "Estado inválido", notes: "Notas demasiado largas" } })} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    const summary = await screen.findByRole("alert"); expect(summary).toHaveFocus();
+    await user.click(screen.getByRole("link", { name: "Estado inválido" }));
+    expect(screen.getByLabelText("Estado")).toHaveFocus();
+    expect(screen.getByLabelText("Estado")).toHaveAccessibleDescription("Estado inválido");
+    await user.click(screen.getByRole("link", { name: "Notas demasiado largas" }));
+    expect(screen.getByLabelText("Notas")).toHaveFocus();
+    await user.type(screen.getByLabelText("Notas"), " corregidas");
+    expect(screen.getByLabelText("Notas")).toHaveFocus();
+  });
+  it.each([true, false])("resumes conflict explicitly with own draft=%s and a fresh confirmed intent", async (own) => {
+    const original = { ...confirmed, meeting_at: "2026-10-09T15:30:42.123Z" };
+    const current = { ...confirmed, name: "Actual", company: "Empresa actual", contact_at: "2026-10-08T15:31:42.123Z", meeting_at: "2026-10-10T15:31:32.456Z", version: 3 };
+    const action = vi.fn().mockResolvedValueOnce({ status: "conflict", confirmed: current })
+      .mockResolvedValueOnce({ status: "invalid", errors: { name: "Revisar" } });
+    render(<ClientForm {...props} client={original} action={action} />);
+    const user = userEvent.setup(); await user.clear(screen.getByLabelText("Nombre *"));
+    await user.type(screen.getByLabelText("Nombre *"), "Mi borrador");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(await screen.findByRole("heading", { name: "Este cliente cambió" })).toBeVisible();
+    expect(screen.getByText("Mi borrador", { selector: "dd" })).toBeVisible(); expect(screen.getByText("Empresa actual")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: own ? "Continuar con mi borrador" : "Usar datos actuales" }));
+    expect(action).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Nombre *")).toHaveValue(own ? "Mi borrador" : "Actual");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await screen.findByRole("alert");
+    expect(action.mock.calls[1][1].get("version")).toBe("3");
+    expect(action.mock.calls[1][1].get("request_id")).not.toBe(action.mock.calls[0][1].get("request_id"));
+    expect(action.mock.calls[1][1].get("original_contact")).toBe(own ? original.contact_at : current.contact_at);
+    const normalized = normalizeForm(action.mock.calls[1][1]); expect(normalized.ok).toBe(true);
+    if (normalized.ok) {
+      expect(normalized.payload.contact_at).toBe(own ? original.contact_at : current.contact_at);
+      expect(normalized.payload.meeting_at).toBe(own ? original.meeting_at : current.meeting_at);
+    }
+  });
+  it("fails closed when a conflict response has no valid confirmed client", async () => {
+    render(<ClientForm {...props} client={confirmed} action={vi.fn().mockResolvedValue({ status: "conflict", confirmed: { ...confirmed, id: "invalid" } })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: "Usar datos actuales" })).toBeNull();
+    expect(screen.getByLabelText("Nombre *")).toHaveAttribute("readonly");
+  });
 });
+
+vi.mock("@/components/ui/motion", () => ({ usePanelMotion: vi.fn() }));

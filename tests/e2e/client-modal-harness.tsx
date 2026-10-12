@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useState } from "react";
 import { ClientList } from "../../src/components/clients/client-list";
 import { ClientModal } from "../../src/components/clients/client-modal";
+import { GlobalLoading } from "../../src/components/ui/global-loading";
 import { NotificationProvider } from "../../src/components/ui/notifications";
 import { saveClient } from "../../src/app/(crm)/clientes/actions";
 import { utcToLocal } from "../../src/lib/clients/dates";
@@ -15,11 +16,17 @@ function Harness({ initial }: { initial: ListResult }) {
   const [result, setResult] = useState(initial);
   const read = useCallback(async () => { setResult(await (await fetch(`/__fixture${window.location.search}`)).json()); }, []);
   useEffect(() => { window.crmHarness.refresh = read; }, [read]);
-  const path = window.location.pathname, direct = path !== "/clientes";
+  const [path, setPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const navigate = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", navigate);
+    return () => window.removeEventListener("popstate", navigate);
+  }, []);
+  const direct = path !== "/clientes";
   const client = path.endsWith("/editar") && result.kind === "found" ? result.rows[0] : undefined;
   return <NotificationProvider>{direct ? <ClientModal action={saveClient} client={client} requestId={crypto.randomUUID()}
     initialContact={utcToLocal(new Date().toISOString())} returnTo={safeReturnPath(new URLSearchParams(window.location.search).get("returnTo") ?? "")} /> :
-    <ClientList result={result} />}</NotificationProvider>;
+    <ClientList result={result} />}<GlobalLoading /></NotificationProvider>;
 }
 async function boot() {
   const result = await (await fetch(`/__fixture${window.location.search}`)).json();

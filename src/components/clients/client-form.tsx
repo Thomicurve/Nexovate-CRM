@@ -2,7 +2,7 @@
 
 import { LoadingLink as Link } from "@/components/ui/loading-navigation";
 import { useRouter } from "next/navigation";
-import { useActionState, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { isClient, safeReturnPath, STATUSES, type Client, type SaveState } from "@/lib/clients/model";
 import { useNotification } from "@/components/ui/notifications";
 import { utcToLocal } from "@/lib/clients/dates";
@@ -10,21 +10,33 @@ import { usePendingLoading } from "@/components/ui/global-loading";
 import styles from "./clients.module.css";
 import HoldButton from "@/components/ui/HoldButton";
 import type { DeleteIntent, DeleteResult } from "@/lib/clients/delete";
+import { ClientConfirmation } from "./client-confirmation";
+import { focusAfterLoading, useClientFormExit, type ExitGuard } from "./client-form-exit";
+
+type FormValues = { name: string; company: string; email: string; phone: string; rubro: string; notes: string;
+  contact_at: string; meeting_at: string; status: string };
+type Draft = { values: FormValues; originalContact: string; originalMeeting: string };
+const initialValues = (client: Client | undefined, contact: string): FormValues => ({ name: client?.name ?? "", company: client?.company ?? "",
+  email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
+  contact_at: client ? utcToLocal(client.contact_at) : contact,
+  meeting_at: client?.meeting_at ? utcToLocal(client.meeting_at) : "", status: client?.status ?? "Contactado" });
 
 export type ClientFormProps = { client?: Client; requestId: string; initialContact: string; returnTo: string;
   action: (state: SaveState, form: FormData) => Promise<SaveState>; embedded?: boolean; closing?: boolean;
   deleteAction?: (intent: DeleteIntent) => Promise<DeleteResult>; onDeleted?: () => void;
-  onSuccess?: (client: Client) => void; onCancel?: () => void; onLockChange?: (locked: boolean) => void };
+  onSuccess?: (client: Client) => void; onCancel?: () => void; onLockChange?: (locked: boolean) => void;
+  onRegisterExit?: (guard: ExitGuard | null) => void };
 type Props = ClientFormProps;
 export function ClientForm(props: Props) {
   const [client, setClient] = useState(props.client);
   const [generation, setGeneration] = useState(0);
   const [request, setRequest] = useState(props.requestId);
-  return <FormBody key={generation} {...props} client={client} requestId={request} focusOnMount={generation > 0}
-    resume={(confirmed) => { setClient(confirmed); setRequest(crypto.randomUUID()); setGeneration((value) => value + 1); }} />;
+  const [draft, setDraft] = useState<Draft>();
+  return <FormBody key={generation} {...props} client={client} requestId={request} focusOnMount={generation > 0} draft={draft}
+    resume={(confirmed, retained) => { setClient(confirmed); setDraft(retained); setRequest(crypto.randomUUID()); setGeneration((value) => value + 1); }} />;
 }
 
-function FormBody({ client, requestId, initialContact, returnTo, action, deleteAction, onDeleted, resume, focusOnMount, embedded, closing, onSuccess, onCancel, onLockChange }: Props & { resume: (client: Client) => void; focusOnMount: boolean }) {
+function FormBody({ client, requestId, initialContact, returnTo, action, deleteAction, onDeleted, resume, focusOnMount, embedded, closing, onSuccess, onCancel, onLockChange, onRegisterExit, draft }: Props & { resume: (client: Client, draft?: Draft) => void; focusOnMount: boolean; draft?: Draft }) {
   const router = useRouter(), notify = useNotification();
   const [navigating, transition] = useTransition();
   usePendingLoading(navigating);
@@ -50,6 +62,9 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
     onLockChange?.(true);
     try {
       const result = await action(previous, form);
+      if (result.status === "conflict" && (!isClient(result.confirmed) || result.confirmed.id !== client?.id || result.confirmed.version < client.version)) {
+        return { status: "error", retry: true, message: "No podemos confirmar la versión actual. Reintentá con los mismos datos antes de salir." };
+      }
       if (result.status === "success") {
         if (!isClient(result.client)) return { status: "error", retry: true, message: "No podemos confirmar el guardado. Reintentá con los mismos datos." };
         notify(client ? "Cliente actualizado" : "Cliente creado", result.client.name);
@@ -69,16 +84,47 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
   const deleteLocked = deletePending || deleteResult?.kind === "success" || deleteResult?.kind === "conflict" || deleteResult?.kind === "error" && deleteResult.retry;
   const disabled = pending || state.status === "success" || Boolean(closing) || deleteLocked;
   const [intent, setIntent] = useState(requestId);
-  const [values, setValues] = useState({ name: client?.name ?? "", company: client?.company ?? "",
-    email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
-    contact_at: client ? utcToLocal(client.contact_at) : initialContact,
-    meeting_at: client?.meeting_at ? utcToLocal(client.meeting_at) : "", status: client?.status ?? "Contactado" });
+  const [values, setValues] = useState<FormValues>(() => draft?.values ?? initialValues(client, initialContact));
+  const originalContact = draft?.originalContact ?? client?.contact_at ?? "", originalMeeting = draft?.originalMeeting ?? client?.meeting_at ?? "";
+  const baseline = initialValues(client, initialContact);
+  const dirty = (Object.keys(values) as (keyof FormValues)[]).some((key) => values[key] !== baseline[key]);
+  const [discard, setDiscard] = useState<{ leave: () => void; cancelLabel?: string; message?: string } | null>(null), [confirmDelete, setConfirmDelete] = useState(false);
+  const summary = useRef<HTMLDivElement>(null), formElement = useRef<HTMLFormElement>(null);
+  // Passive focus runs after the pending loading dialog releases its top layer.
+  useEffect(() => { if (state.status === "invalid") return focusAfterLoading(() => summary.current); }, [state]);
   const frozen = state.status === "error" && state.retry === true;
   const deleteUnavailable = pending || frozen || state.status === "success" || Boolean(closing) || navigating ||
     deletePending || deleteResult?.kind === "success" || deleteResult?.kind === "conflict";
-  const cancel = onCancel ? <button type="button" className={styles.secondaryButton} disabled={disabled || frozen} onClick={onCancel}>Cancelar</button> :
-    <Link href={returnTo} aria-disabled={disabled || frozen} tabIndex={disabled || frozen ? -1 : undefined}
-      onClick={(event) => { if (disabled || frozen) event.preventDefault(); }}>Cancelar</Link>;
+  const blockedExit = disabled || frozen || navigating;
+  const exitState = useRef({ dirty, blocked: blockedExit });
+  useLayoutEffect(() => { exitState.current = { dirty, blocked: blockedExit }; });
+  const guard = useCallback<ExitGuard>((leave) => {
+    if (exitState.current.blocked) return;
+    if (exitState.current.dirty) setDiscard({ leave }); else leave();
+  }, []);
+  useLayoutEffect(() => { onRegisterExit?.(guard); return () => onRegisterExit?.(null); }, [onRegisterExit, guard]);
+  useClientFormExit(dirty, blockedExit, guard, (href) => {
+    if (/^https?:/.test(href)) location.assign(href); else transition(() => router.push(href));
+  });
+  const leave = () => { if (onCancel) onCancel(); else transition(() => router.replace(safeReturnPath(returnTo))); };
+  function leaveAfterDeleteConflict() {
+    if (deleteResult?.kind !== "conflict" || pending || frozen || closing || navigating || deletePending) return;
+    const confirmedExit = () => { onLockChange?.(false); leave(); };
+    // This settled conflict permits explicit exit, but never unlocks stale editing
+    // or another deletion while the user is deciding whether to keep the draft.
+    if (exitState.current.dirty) setDiscard({ leave: confirmedExit, cancelLabel: "Conservar borrador",
+      message: "Tu borrador se conserva con los campos bloqueados. Para revisar la versión actual, necesitás volver a Clientes. Descartar cierra este borrador sin guardarlo." });
+    else confirmedExit();
+  }
+  const cancel = onCancel ? <button type="button" className={styles.secondaryButton} disabled={blockedExit} onClick={() => guard(leave)}>Cancelar</button> :
+    <Link href={safeReturnPath(returnTo)} data-client-cancel="" aria-disabled={blockedExit} tabIndex={blockedExit ? -1 : undefined}
+      onClick={(event) => { event.preventDefault(); guard(leave); }}>Cancelar</Link>;
+  const confirmations = <>
+    {discard && <ClientConfirmation title="¿Descartar los cambios?" confirmLabel="Descartar" cancelLabel={discard.cancelLabel} onCancel={() => setDiscard(null)}
+      onConfirm={() => { const next = discard.leave; setDiscard(null); next(); }}><p>{discard.message ?? "Tenés cambios sin guardar. Podés seguir editando tu borrador."}</p></ClientConfirmation>}
+    {confirmDelete && client && <ClientConfirmation title={`Borrar ${client.name}`} confirmLabel="Confirmar borrado" onCancel={() => setConfirmDelete(false)}
+      onConfirm={() => { setConfirmDelete(false); void remove(); }}><p>El cliente desaparecerá de la lista. Su historial y sus métricas permanecen.</p></ClientConfirmation>}
+  </>;
   const change = (field: keyof typeof values, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
     if (state.status === "invalid" || state.status === "error" && !state.retry) setIntent(crypto.randomUUID());
@@ -98,52 +144,65 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
       {state.errors?.[name] && <p id={`${name}-error`} className={styles.error}>{state.errors[name]}</p>}
     </div>
   );
-  if (state.status === "conflict" && state.confirmed) return (
-    <section className={embedded ? styles.modalForm : styles.panel}>
-      {!embedded && <h1>Editar cliente</h1>}
-      <p className={styles.error} role="alert">Este cliente se actualizó mientras lo editabas.</p>
-      <p>Versión confirmada: {state.confirmed.version}</p>
-      <dl className={styles.confirmed}>
-        {[["Nombre", state.confirmed.name], ["Empresa", state.confirmed.company], ["Email", state.confirmed.email],
-          ["Teléfono", state.confirmed.phone], ["Rubro", state.confirmed.rubro], ["Estado", state.confirmed.status],
-          ["Contacto", utcToLocal(state.confirmed.contact_at)], ["Cita", state.confirmed.meeting_at ? utcToLocal(state.confirmed.meeting_at) : null],
-          ["Notas", state.confirmed.notes]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Sin informar"}</dd></div>)}
-      </dl>
-      <p className={styles.hint}>Tus cambios no se guardaron. Volvé a editar la versión confirmada.</p>
-      <div className={styles.actions}><button type="button" onClick={() => resume(state.confirmed!)}>Volver a editar</button>
-        {cancel}</div>
-    </section>
-  );
+  if (state.status === "conflict" && state.confirmed) {
+    const current = state.confirmed;
+    const rows = [["Nombre", values.name, current.name], ["Empresa", values.company, current.company], ["Rubro", values.rubro, current.rubro],
+      ["Email", values.email, current.email], ["Teléfono", values.phone, current.phone], ["Estado", values.status, current.status],
+      ["Contacto", values.contact_at, utcToLocal(current.contact_at)], ["Reunión", values.meeting_at, current.meeting_at ? utcToLocal(current.meeting_at) : null],
+      ["Notas", values.notes, current.notes]];
+    return <section className={embedded ? styles.modalForm : styles.formPanel}>
+      <h2>Este cliente cambió</h2><p role="alert">Tus cambios no se guardaron. Compará tu borrador con los datos actuales.</p>
+      <p className={styles.hint}>Versión confirmada: {current.version}</p>
+      <div className={styles.conflictComparison}>
+        <div aria-label="Mi borrador"><h3>Mi borrador</h3><dl>{rows.map(([label, own]) => <div key={label}><dt>{label}</dt><dd>{own || "Sin informar"}</dd></div>)}</dl></div>
+        <div aria-label="Datos actuales"><h3>Datos actuales</h3><dl>{rows.map(([label, , latest]) => <div key={label}><dt>{label}</dt><dd>{latest || "Sin informar"}</dd></div>)}</dl></div>
+      </div>
+      <p className={styles.hint}>Elegí cómo retomar la edición. Después podrás revisar y guardar con la versión actual.</p>
+      <div className={styles.actions}><button type="button" onClick={() => resume(current, { values, originalContact, originalMeeting })}>Continuar con mi borrador</button>
+        <button type="button" className={styles.secondaryButton} onClick={() => resume(current)}>Usar datos actuales</button>{cancel}</div>{confirmations}
+    </section>;
+  }
   return (
-    <section className={embedded ? styles.modalForm : styles.panel}>
+    <section className={embedded ? styles.modalForm : styles.formPanel}>
       {!embedded && <h1>{client ? "Editar cliente" : "Nuevo cliente"}</h1>}
       <p className={styles.hint}>* Obligatorio. Fechas en horario de Buenos Aires.</p>
       {!client && <p className={styles.hint}>El cliente se crea en Contactado.</p>}
-      <form action={submit} noValidate aria-busy={disabled} onSubmit={() => onLockChange?.(true)}>
+      <form ref={formElement} tabIndex={-1} action={submit} noValidate aria-busy={disabled} onSubmit={() => onLockChange?.(true)}>
         <input type="hidden" name="request_id" value={intent} />
         <input type="hidden" name="client_id" value={client?.id ?? ""} />
         <input type="hidden" name="version" value={client?.version ?? ""} />
         <input type="hidden" name="initial_contact" value={initialContact} />
-        <input type="hidden" name="original_contact" value={client?.contact_at ?? ""} />
-        <input type="hidden" name="original_meeting" value={client?.meeting_at ?? ""} />
+        <input type="hidden" name="original_contact" value={originalContact} />
+        <input type="hidden" name="original_meeting" value={originalMeeting} />
         <input type="hidden" name="return_to" value={returnTo} />
-        <div className={styles.grid}>
-          {field("name", "Nombre *", "text", 200)}{field("company", "Empresa", "text", 200)}
+        {state.status === "invalid" && <div ref={summary} role="alert" tabIndex={-1} className={styles.errorSummary}>
+          <h2>Revisá los campos</h2><p>{state.message || "Corregí estos datos antes de guardar."}</p>
+          <ul>{Object.entries(state.errors ?? {}).map(([name, message]) => <li key={name}><a href={`#${name}`} onClick={(event) => {
+            event.preventDefault(); const target = formElement.current?.elements.namedItem(name);
+            if (target instanceof HTMLElement) target.focus(); else formElement.current?.focus();
+          }}>{message}</a></li>)}</ul>
+        </div>}
+        <fieldset className={styles.formGroup}><legend>Datos del cliente</legend><div className={styles.grid}>
+          <div className={styles.wide}>{field("name", "Nombre *", "text", 200)}</div>
+          {field("company", "Empresa", "text", 200)}{field("rubro", "Rubro", "text", 120)}
           {field("email", "Email", "email", 254)}{field("phone", "Teléfono", "tel", 60)}
-          {field("rubro", "Rubro", "text", 120)}{field("contact_at", "Fecha de contacto *", "datetime-local")}
-          {client && <div className={styles.field}><label htmlFor="status">Estado</label>
+        </div></fieldset>
+        <fieldset className={styles.formGroup}><legend>Contacto y seguimiento</legend><div className={styles.grid}>
+          {field("contact_at", "Fecha de contacto *", "datetime-local")}{field("meeting_at", "Fecha de reunión", "datetime-local")}
+          {client && <div className={`${styles.field} ${styles.wide}`}><label htmlFor="status">Estado</label>
             <select id="status" name="status" value={values.status} disabled={disabled || frozen}
-              onChange={(event) => change("status", event.target.value)} aria-invalid={Boolean(state.errors?.status)}>
+              onChange={(event) => change("status", event.target.value)} aria-invalid={Boolean(state.errors?.status)} aria-describedby={state.errors?.status ? "status-error" : undefined}>
               {STATUSES.map((status) => <option key={status}>{status}</option>)}
             </select>{frozen && <input type="hidden" name="status" value={values.status} />}
-            {state.errors?.status && <p className={styles.error}>{state.errors.status}</p>}</div>}
-          {field("meeting_at", "Fecha de reunión", "datetime-local")}
-          <div className={`${styles.field} ${styles.wide}`}><label htmlFor="notes">Notas</label>
+            {state.errors?.status && <p id="status-error" className={styles.error}>{state.errors.status}</p>}</div>}
+        </div></fieldset>
+        <fieldset className={styles.formGroup}><legend>Notas</legend>
+          <div className={styles.field}><label htmlFor="notes">Notas</label>
             <textarea id="notes" name="notes" value={values.notes} maxLength={5000} readOnly={frozen} disabled={disabled}
-              onChange={(event) => change("notes", event.target.value)} aria-invalid={Boolean(state.errors?.notes)} />
-            {state.errors?.notes && <p className={styles.error}>{state.errors.notes}</p>}</div>
-        </div>
-        {state.message && <p className={styles.error} role="alert">{state.message}</p>}
+              onChange={(event) => change("notes", event.target.value)} aria-invalid={Boolean(state.errors?.notes)} aria-describedby={state.errors?.notes ? "notes-error" : undefined} />
+            {state.errors?.notes && <p id="notes-error" className={styles.error}>{state.errors.notes}</p>}</div>
+        </fieldset>
+        {state.message && state.status !== "invalid" && <p className={styles.error} role="alert">{state.message}</p>}
         <div className={styles.actions}><button type="submit" disabled={disabled}>
           {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}
         </button>{cancel}</div>
@@ -152,13 +211,15 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
         <h2>Borrar cliente</h2><p>El cliente desaparecerá de la lista. Su historial y sus métricas permanecen.</p>
         <p className={styles.hint}>Mantené el botón durante 2 segundos. Soltar antes cancela.</p>
         {deleteResult?.kind === "conflict" ? <><p className={styles.error} role="alert">El cliente cambió mientras lo editabas. Volvé a Clientes para revisar la versión actual antes de borrar.</p>
-          <button type="button" onClick={() => { onLockChange?.(false); if (onCancel) onCancel(); else transition(() => router.replace(safeReturnPath(returnTo))); }}>Volver a Clientes</button></> :
+          <button type="button" onClick={leaveAfterDeleteConflict}>Volver a Clientes</button></> :
           deleteResult?.kind === "error" ? <><p className={styles.error} role="alert">{deleteResult.message}</p>
             <button type="button" disabled={deleteUnavailable} onClick={remove}>Reintentar borrado</button></> :
+          <><button type="button" disabled={deleteUnavailable} className={styles.secondaryButton} onClick={() => setConfirmDelete(true)}>Borrar con confirmación</button>
           <HoldButton holdTime={2000} doneLabel="Confirmando borrado…" disabled={disabled || frozen || navigating} onHold={remove}
             size="lg" backgroundColor="#121f35" fillColor="#f0aeb5" textColor="#f0aeb5" fillTextColor="#080e1b"
-            className={styles.deleteButton}>Mantener para borrar</HoldButton>}
+            className={styles.deleteButton}>Mantener para borrar</HoldButton></>}
       </section>}
+      {confirmations}
     </section>
   );
 }
