@@ -71,7 +71,7 @@ for (const accountIndex of [0, 1]) {
         const returnParams = [...new URL(page.url()).searchParams].filter(([, value]) => value).sort();
         await activate(main.getByRole("link", { name: "Nuevo cliente", exact: true }));
         await expect(main.getByRole("heading", { name: "Nuevo cliente" })).toBeVisible();
-        for (const label of ["Nombre *", "Empresa", "Email", "Teléfono", "Rubro", "Fecha de contacto *", "Fecha de reunión", "Notas"]) {
+        for (const label of ["Nombre *", "Empresa", "Email", "Teléfono", "Rubro", "Fecha de contacto *", "Fecha de reunión", "Comentario inicial (opcional)"]) {
           await tabTo(page, main.getByLabel(label, { exact: true }));
         }
         await main.getByLabel("Nombre *", { exact: true }).fill("Borrador sin guardar");

@@ -15,6 +15,7 @@ const order = ["Contactado", "Interesado", "Reunión agendada", "Cerrado", "Sin 
 const render = (ui: ReactNode) => renderUi(ui, { wrapper: ({ children }) => <NotificationProvider><WithLoading>{children}</WithLoading></NotificationProvider> });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: f.refresh }) }));
 vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: f.move, saveClient: vi.fn(), deleteClient: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/comment-actions", () => ({ loadClientComments: vi.fn(async () => ({ kind: "found", rows: [], next: null, userId: "11111111-1111-4111-8111-111111111111" })), createClientComment: vi.fn(), archiveClientComment: vi.fn() }));
 describe("shared client views and approved board controls", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
@@ -68,7 +69,8 @@ describe("shared client views and approved board controls", () => {
     expect(within(empty).queryByText(/Sin empresa|Sin informar|Reunión:|Notas|Email|Teléfono/)).not.toBeInTheDocument();
     expect(within(empty).queryByText("Contactado")).not.toBeInTheDocument();
     const full = screen.getByRole("button", { name: "Abrir Completo" });
-    for (const value of ["Empresa extensa", "Servicios", "Notas", "Email", "Teléfono"]) expect(within(full).getByText(value)).toBeInTheDocument();
+    for (const value of ["Empresa extensa", "Servicios", "Email", "Teléfono"]) expect(within(full).getByText(value)).toBeInTheDocument();
+    expect(within(full).queryByText("Notas")).not.toBeInTheDocument();
     expect(within(full).getByText(/^Reunión:/)).toBeInTheDocument();
     expect(within(full).queryByRole("link")).not.toBeInTheDocument();
   });
@@ -101,14 +103,19 @@ describe("shared client views and approved board controls", () => {
     expect(window.location.pathname + window.location.search).toBe("/clientes?estado=Contactado&vista=tabla");
     expect(f.move).not.toHaveBeenCalled();
   });
-  it("opens full editable row data by card click or keyboard and returns focus to that card", async () => {
+  it("opens comments by card click or keyboard, edits from details and returns focus to that card", async () => {
     const user = userEvent.setup(), parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");
     render(<ClientList result={{ kind: "found", filters: parsed.filters, rows: [{ ...confirmed, notes: "Datos completos" }], count: 1 }} />);
     const card = screen.getByRole("button", { name: "Abrir Confirmado" });
     for (const activate of [() => user.click(card), () => { card.focus(); return user.keyboard("[Enter]"); }]) {
       await activate();
+      const detail = screen.getByRole("dialog", { name: "Confirmado" });
+      expect(within(detail).getByRole("textbox", { name: "Nuevo comentario" })).toBeVisible();
+      expect(screen.queryByRole("dialog", { name: "Editar cliente" })).not.toBeInTheDocument();
+      await user.click(within(detail).getByRole("link", { name: "Editar Confirmado" }));
       expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeVisible();
-      expect(screen.getByLabelText("Notas")).toHaveValue("Datos completos");
+      expect(screen.queryByLabelText("Notas")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Nombre *")).toHaveValue("Confirmado");
       await user.click(screen.getByRole("button", { name: "Cancelar" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       await waitFor(() => { expect(card).toHaveFocus(); expect(document.body.style.overflow).not.toBe("hidden"); });
@@ -173,7 +180,7 @@ describe("shared client views and approved board controls", () => {
     expect(screen.getByRole("dialog", { name: "Cargando" })).toBeInTheDocument();
     expect(screen.queryByText("Estado actualizado")).not.toBeInTheDocument();
     await act(async () => resolve({ kind: "success", client: { ...confirmed, status: "Interesado", version: 3 } }));
-    expect(screen.getByText("Estado actualizado")).toBeInTheDocument();
+    expect(await screen.findByText("Estado actualizado")).toBeInTheDocument();
     expect(screen.getByText("Confirmado · Interesado")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Kanban de clientes" })).toHaveFocus();
     expect(f.refresh).toHaveBeenCalledOnce();
@@ -192,7 +199,7 @@ describe("shared client views and approved board controls", () => {
     await user.click(screen.getByRole("button", { name: "Intentar de nuevo" }));
     await waitFor(() => expect(f.move).toHaveBeenCalledTimes(2));
     expect(f.move.mock.calls[0]).toEqual(f.move.mock.calls[1]);
-    expect(screen.getByText("Estado actualizado")).toBeInTheDocument();
+    expect(await screen.findByText("Estado actualizado")).toBeInTheDocument();
   });
   it("Escape and same-column drop preserve the card without invoking a write", async () => {
     const user = userEvent.setup(), parsed = parseFilters({}); if (!parsed.ok) throw new Error("valid filters");

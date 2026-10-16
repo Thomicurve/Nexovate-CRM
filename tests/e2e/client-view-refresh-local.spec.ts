@@ -12,10 +12,11 @@ test.beforeAll(async () => {
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-view-refresh", optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core", "recharts", "use-sync-external-store/shim/with-selector"] }, server: { host: "127.0.0.1", port: 3111, strictPort: true },
     resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-crm-boundaries", enforce: "pre",
-      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
+      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || (id.endsWith("/clientes/actions") || id.endsWith("/clientes/comment-actions")) ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
         if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/comment-actions")) return "export async function loadClientComments(){return {kind:'found',rows:[],next:null,userId:'11111111-1111-4111-8111-111111111111'}} export async function createClientComment(){throw new Error('Comment writes disabled')} export const archiveClientComment=createClientComment;";
         if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Business writes disabled in local harness')} export const saveClient=moveClient; export const deleteClient=moveClient;";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
@@ -25,6 +26,9 @@ test.beforeAll(async () => {
       }); },
     }] });
   await server.listen();
+  for (const path of ["/tests/e2e/client-view-refresh-harness.tsx", "/src/components/clients/client-list.tsx", "/src/components/clients/client-details.tsx",
+    "/src/components/clients/client-comments.tsx", "/src/components/clients/clients.module.css", "/src/app/globals.css"])
+    await server.transformRequest(path);
 });
 test.afterAll(async () => { await server?.close(); });
 
@@ -131,7 +135,7 @@ test("client reading and contextual filters reflow with native keyboard focus an
     await opener.focus(); await page.keyboard.press("Enter");
     const detail = page.getByRole("dialog", { name: "Confirmado", exact: true });
     await expect(detail.getByRole("button", { name: "Cerrar", exact: true })).toBeFocused();
-    for (const label of ["Empresa", "Rubro", "Estado", "Email", "Teléfono", "Contacto", "Reunión", "Notas"]) {
+    for (const label of ["Empresa", "Rubro", "Estado", "Email", "Teléfono", "Contacto", "Reunión"]) {
       await expect(detail.locator("dt", { hasText: new RegExp(`^${label}$`) })).toHaveCount(1);
     }
     await expect(detail.getByRole("link", { name: "Enviar correo a Confirmado" })).toHaveAttribute("href", "mailto:persona%40example.com");
@@ -139,7 +143,7 @@ test("client reading and contextual filters reflow with native keyboard focus an
     const edit = detail.getByRole("link", { name: "Editar Confirmado" });
     expect(new URL(await edit.getAttribute("href") ?? "", page.url()).searchParams.get("returnTo")).toBe(`/clientes?${context}`);
     const box = await detail.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-    await page.keyboard.press("Shift+Tab"); await expect(edit).toBeFocused();
+    await page.keyboard.press("Shift+Tab"); await expect(detail.getByRole("textbox", { name: "Nuevo comentario" })).toBeFocused();
     await page.keyboard.press("Tab"); await expect(detail.getByRole("button", { name: "Cerrar", exact: true })).toBeFocused();
     await page.keyboard.press("Escape"); await expect(opener).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -21,9 +21,9 @@ const colors: Record<ClientStatus, string> = { Contactado: "#60A5FA", "Reunión 
 const stageStyle = (status: ClientStatus) => ({ "--stage-accent": colors[status] } as CSSProperties);
 const date = new Intl.DateTimeFormat("es-AR", { timeZone: CLIENT_TIME_ZONE, dateStyle: "short", timeStyle: "short" });
 const columnId = (status: ClientStatus) => `column-${status}`;
-type EditCard = (client: Client, opener: HTMLElement) => void;
+type ReadCard = (client: Client, opener: HTMLElement) => void;
 
-export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[]; returnTo: string; onLock: (locked: boolean) => void; onEdit: EditCard }) {
+export function ClientKanban({ rows, returnTo, onLock, onRead }: { rows: Client[]; returnTo: string; onLock: (locked: boolean) => void; onRead: ReadCard }) {
   const router = useRouter(), notify = useNotification();
   const [board, setBoard] = useState<BoardMove>({ rows, intent: null, original: null, pending: false, result: null });
   const [refreshPending, transition] = useTransition();
@@ -129,14 +129,14 @@ export function ClientKanban({ rows, returnTo, onLock, onEdit }: { rows: Client[
           onDragEnd: ({ over }) => over ? `Soltaste en ${over.data.current?.status}.` : "Movimiento cancelado.",
           onDragCancel: () => "Movimiento cancelado. El estado se conserva." } }}>
       <div className={styles.board} tabIndex={0} aria-label="Etapas de clientes" aria-describedby="board-scroll-hint">{order.map((status, index) => <Column key={status} status={status} visible={visible === status}
-        rows={board.rows.filter((row) => row.status === status)} locked={locked} dragging={dragging} onEdit={onEdit}
+        rows={board.rows.filter((row) => row.status === status)} locked={locked} dragging={dragging} onRead={onRead}
         left={order[index - 1]} right={order[index + 1]} reorder={reorder} />)}</div>
     </DndContext>
   </section>;
 }
 
-function Column({ status, rows, visible, locked, dragging, onEdit, left, right, reorder }: { status: ClientStatus; rows: Client[]; visible: boolean; locked: boolean;
-  dragging: boolean; onEdit: EditCard; left?: ClientStatus; right?: ClientStatus; reorder: (from: ClientStatus, to: ClientStatus) => void }) {
+function Column({ status, rows, visible, locked, dragging, onRead, left, right, reorder }: { status: ClientStatus; rows: Client[]; visible: boolean; locked: boolean;
+  dragging: boolean; onRead: ReadCard; left?: ClientStatus; right?: ClientStatus; reorder: (from: ClientStatus, to: ClientStatus) => void }) {
   const { setNodeRef, isOver, active } = useDroppable({ id: columnId(status), data: { kind: "column", status }, disabled: locked });
   const { setNodeRef: setDragNodeRef, setActivatorNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
     id: `reorder-${status}`, data: { kind: "column", status, name: `columna ${status}` }, disabled: locked });
@@ -170,16 +170,16 @@ function Column({ status, rows, visible, locked, dragging, onEdit, left, right, 
         onClick={() => { if (to) reorder(status, to as ClientStatus); setMenu(false); menuButton.current?.focus(); }}>Mover a la {direction}</button>)}
     </div>}
     {target && <p className={styles.dropCue}>{active?.data.current?.kind === "column" ? "Soltar columna aquí" : "Soltar aquí"}</p>}
-    {rows.map((row) => <Card key={row.id} client={row} locked={locked || dragging} moveLocked={locked} onEdit={onEdit} />)}
+    {rows.map((row) => <Card key={row.id} client={row} locked={locked || dragging} moveLocked={locked} onRead={onRead} />)}
     {!rows.length && <p className={styles.columnEmpty}>Sin clientes en esta etapa de la página. Elegí otra etapa o agregá un cliente desde Nuevo cliente.</p>}
   </section>;
 }
-function Card({ client, locked, moveLocked, onEdit }: { client: Client; locked: boolean; moveLocked: boolean; onEdit: EditCard }) {
+function Card({ client, locked, moveLocked, onRead }: { client: Client; locked: boolean; moveLocked: boolean; onRead: ReadCard }) {
   const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, isDragging } = useDraggable({
     id: `client-${client.id}`, data: { kind: "client", clientId: client.id, status: client.status, name: client.name }, disabled: moveLocked });
   const pointer = useRef<{ x: number; y: number } | null>(null), suppress = useRef(false);
   useLayoutEffect(() => { if (isDragging) suppress.current = true; }, [isDragging]);
-  const open = (opener: HTMLElement) => { if (!locked && !suppress.current && window.getSelection()?.isCollapsed !== false) { opener.focus(); onEdit(client, opener); } };
+  const open = (opener: HTMLElement) => { if (!locked && !suppress.current && window.getSelection()?.isCollapsed !== false) { opener.focus(); onRead(client, opener); } };
   return <article ref={setNodeRef} className={`${styles.card} ${isDragging ? styles.dragging : ""}`} data-client={client.id}
     style={{
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, zIndex: isDragging ? 1 : undefined }}>
@@ -197,7 +197,7 @@ function Card({ client, locked, moveLocked, onEdit }: { client: Client; locked: 
     {client.rubro && <p className={styles.cardIndustry}>{client.rubro}</p>}
     <div className={styles.cardMetadata}><span>Contacto: {date.format(new Date(client.contact_at))}</span>
       {client.meeting_at && <span>Reunión: {date.format(new Date(client.meeting_at))}</span>}
-      {client.notes?.trim() && <span>Notas</span>}{client.email?.trim() && <span>Email</span>}{client.phone?.trim() && <span>Teléfono</span>}
+      {client.email?.trim() && <span>Email</span>}{client.phone?.trim() && <span>Teléfono</span>}
     </div>
     </div><button type="button" className={styles.dragHandle} data-drag-handle ref={setActivatorNodeRef} {...attributes} {...listeners} disabled={moveLocked}
         aria-describedby="move-instructions" aria-label={`Arrastrar cliente ${client.name}`}><Grip /></button>

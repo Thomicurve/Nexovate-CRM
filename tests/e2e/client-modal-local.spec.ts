@@ -8,15 +8,17 @@ import { confirmed } from "../clients/fixture";
 
 let server: ViteDevServer;
 test.beforeAll(async () => {
+  test.setTimeout(90_000); // Cold local transforms only; interaction/assertion limits stay unchanged.
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-crm-modal",
     optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core"] },
     server: { host: "127.0.0.1", port: 3112, strictPort: true },
     resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-modal-boundaries", enforce: "pre",
-      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
+      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || (id.endsWith("/clientes/actions") || id.endsWith("/clientes/comment-actions")) ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
         if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/comment-actions")) return "export async function loadClientComments(){return {kind:'found',rows:[],next:null,userId:'11111111-1111-4111-8111-111111111111'}} export async function createClientComment(){throw new Error('Comment writes disabled')} export const archiveClientComment=createClientComment;";
         if (id.endsWith("/clientes/actions")) return "export async function moveClient(){throw new Error('Moves disabled')} export const deleteClient=moveClient; export async function saveClient(_state,form){return (await fetch('/__save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(form))})).json()}";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
@@ -26,6 +28,10 @@ test.beforeAll(async () => {
       }); },
     }] });
   await server.listen();
+  // Match the existing Kanban harness: do not charge cold source transforms to keyboard interactions.
+  for (const path of ["/tests/e2e/client-modal-harness.tsx", "/src/components/clients/client-list.tsx", "/src/components/clients/client-details.tsx",
+    "/src/components/clients/client-comments.tsx", "/src/components/clients/client-form.tsx", "/src/components/clients/clients.module.css", "/src/app/globals.css"])
+    await server.transformRequest(path);
 });
 test.afterAll(async () => { await server?.close(); });
 
@@ -71,7 +77,8 @@ test("native modal focus, background, motion, mobile scrolling and direct link r
   const opener = page.getByRole("button", { name: "Ver Confirmado" }); await opener.focus(); await page.keyboard.press("Enter"); await page.getByRole("link", { name: /^Editar / }).click();
   const dialog = page.getByRole("dialog", { name: "Editar cliente" }); await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Nombre *")).toBeFocused();
-  await expect(dialog.getByLabel("Notas")).toHaveValue("Notas completas");
+  await expect(dialog.getByLabel("Notas")).toHaveCount(0);
+  await expect(dialog.getByLabel("Email")).toHaveValue("persona@example.com");
   const initialReads = data.reads.length;
   await expect.poll(() => dialog.evaluate((element) => (element as HTMLElement).style.transform)).toBe("");
   expect((await dialog.boundingBox())!.width).toBeCloseTo(800, 0);

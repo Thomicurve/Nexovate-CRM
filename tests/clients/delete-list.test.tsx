@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { ClientList } from "@/components/clients/client-list";
+vi.mock("@/app/(crm)/clientes/comment-actions", () => ({ loadClientComments: vi.fn(async () => ({ kind: "found", rows: [], next: null, userId: "11111111-1111-4111-8111-111111111111" })), createClientComment: vi.fn(), archiveClientComment: vi.fn() }));
 import { NotificationProvider } from "@/components/ui/notifications";
 import { WithLoading } from "../ui/loading-test-support";
 import { parseFilters } from "@/lib/clients/filters";

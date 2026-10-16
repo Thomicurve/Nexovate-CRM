@@ -57,12 +57,16 @@ describe("approved client form interaction", () => {
     expect(screen.getByLabelText("Email")).not.toHaveAttribute("required");
     expect(screen.getByLabelText("Fecha de contacto *")).toHaveValue(props.initialContact);
     expect(screen.getByRole("link", { name: "Cancelar" })).toHaveAttribute("href", props.returnTo);
+    expect(screen.getByRole("textbox", { name: "Comentario inicial (opcional)" })).toHaveAttribute("name", "initial_comment");
+    expect(screen.queryByLabelText("Notas")).not.toBeInTheDocument();
   });
   it("uses accessible six-state select for edit and preserves confirmed contact precision", () => {
     render(<ClientForm {...props} client={confirmed} action={vi.fn()} />);
     expect(screen.getByRole("combobox", { name: "Estado" })).toBeVisible();
     expect(screen.getAllByRole("option")).toHaveLength(6);
     expect(screen.getByLabelText("Nombre *")).toHaveValue("Confirmado");
+    expect(screen.queryByRole("textbox", { name: "Comentario inicial (opcional)" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Notas")).not.toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
   });
@@ -118,17 +122,34 @@ describe("approved client form interaction", () => {
   });
   it("focuses a linked error summary only after invalid submission", async () => {
     render(<ClientForm {...props} client={confirmed} action={vi.fn().mockResolvedValue({ status: "invalid",
-      errors: { name: "Nombre obligatorio", status: "Estado inválido", notes: "Notas demasiado largas" } })} />);
+      errors: { name: "Nombre obligatorio", status: "Estado inválido", company: "Empresa demasiado larga" } })} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     const summary = await screen.findByRole("alert"); expect(summary).toHaveFocus();
     await user.click(screen.getByRole("link", { name: "Estado inválido" }));
     expect(screen.getByLabelText("Estado")).toHaveFocus();
     expect(screen.getByLabelText("Estado")).toHaveAccessibleDescription("Estado inválido");
-    await user.click(screen.getByRole("link", { name: "Notas demasiado largas" }));
-    expect(screen.getByLabelText("Notas")).toHaveFocus();
-    await user.type(screen.getByLabelText("Notas"), " corregidas");
-    expect(screen.getByLabelText("Notas")).toHaveFocus();
+    await user.click(screen.getByRole("link", { name: "Empresa demasiado larga" }));
+    expect(screen.getByLabelText("Empresa")).toHaveFocus();
+    await user.type(screen.getByLabelText("Empresa"), " corregida");
+    expect(screen.getByLabelText("Empresa")).toHaveFocus();
+  });
+  it("retains exact initial comment through uncertain retry, including 5000 astral characters", async () => {
+    const action = vi.fn().mockResolvedValue({ status: "error", retry: true, message: "Resultado incierto" });
+    render(<ClientForm {...props} action={action} />);
+    const input = screen.getByLabelText("Comentario inicial (opcional)");
+    const value = "🧉".repeat(5000);
+    await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+      setter.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+    await screen.findByRole("alert");
+    expect(input).toHaveAttribute("readonly");
+    expect(input).toHaveValue(value);
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(action.mock.calls[0][1].get("initial_comment")).toBe(value);
+    expect(action.mock.calls[1][1].get("initial_comment")).toBe(value);
+    expect(action.mock.calls[0][1].get("request_id")).toBe(action.mock.calls[1][1].get("request_id"));
+    expect(action.mock.calls[0][1].has("notes")).toBe(false);
   });
   it.each([true, false])("resumes conflict explicitly with own draft=%s and a fresh confirmed intent", async (own) => {
     const original = { ...confirmed, meeting_at: "2026-10-09T15:30:42.123Z" };

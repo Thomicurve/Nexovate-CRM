@@ -2,7 +2,7 @@
 
 > Conservar lo sucedido con cada cliente mediante comentarios con autor y fecha, y un archivo consultable.
 
-**Feature:** crm-comments · **Revisión:** SPEC-1
+**Feature:** crm-comments · **Revisión:** SPEC-2
 **Plan y tareas:** [task.md](task.md)
 
 ## Necesidad
@@ -19,6 +19,8 @@ Las notas actuales son un único texto editable. No registran quién escribió c
 - Mantener autenticación de los dos socios, filtros, tablero, borradores, control de concurrencia, borrado lógico e indicadores actuales.
 
 ## Comportamiento esperado
+
+Abrir una tarjeta de Kanban o un cliente de Tabla muestra la misma ficha con comentarios y el botón «Editar cliente». La edición se abre desde ese botón; arrastre, menús de etapa, estados, filtros y contadores conservan su comportamiento. Esta unificación fue elegida expresamente por el usuario durante la implementación.
 
 Al abrir la ficha se muestran los comentarios activos, del más reciente al más antiguo, con desempate estable. El texto conserva saltos de línea. Un compositor con etiqueta visible permite agregar un comentario de hasta 5000 caracteres; no acepta contenido vacío. La fecha/hora corresponde a Buenos Aires. La identidad y el momento provienen de la sesión y del servidor, nunca de valores elegidos por el formulario.
 
@@ -37,7 +39,7 @@ Las entradas históricas indican que no se registraron autor y fecha originales.
 ## Criterios de aceptación
 
 - **AC-001 — Alta atribuida:** un socio autorizado crea comentarios no vacíos de hasta 5000 caracteres. Persisten con su identidad y hora del servidor; ambos socios los pueden leer tras reabrir. Identidad/fecha manipuladas desde el cliente no se aceptan.
-- **AC-002 — Historial legible:** ficha con texto, autor identificable, fecha/hora Buenos Aires y orden estable, paginación accesible, saltos de línea y protección ante contenido largo. Carga/error/vacío son explícitos.
+- **AC-002 — Historial legible y acceso:** Kanban y Tabla abren la misma ficha con comentarios y «Editar cliente». La ficha muestra texto, autor identificable, fecha/hora Buenos Aires y orden estable, paginación accesible, saltos de línea y protección ante contenido largo. Carga/error/vacío son explícitos. Abrir comentarios no dispara una edición ni afecta el arrastre de tarjetas o los menús de etapas.
 - **AC-003 — Archivo autorizado:** sólo el autor archiva comentarios nuevos; cualquiera de los dos socios archiva «Nota anterior». Intentos directos de un socio distinto, anónimo o no miembro se rechazan según la regla, incluso sin interfaz. El archivo conserva los datos y no ofrece eliminación.
 - **AC-004 — Consulta de archivados:** «Ver archivados» permite leer entradas archivadas del cliente, incluido quién y cuándo archivó; conserva autor y fecha originales cuando existen. Regreso al historial activo y vacíos accesibles. No hay edición ni eliminación ni restauración.
 - **AC-005 — Migración sin invenciones:** cada nota no vacía se conserva exactamente una vez como legado; ninguna nota se pierde, duplica ni atribuye falsamente. Sólo se conoce la fecha de importación. No se descartan datos de clientes borrados. La app deja de utilizar Notas y la base evita seguir mutando el texto antiguo.
@@ -63,3 +65,5 @@ Preparar una migración incremental, sin modificar migraciones históricas ni el
 El usuario confirmó «Sí, conservar como Nota anterior» y «Sin edición; solo el autor archiva» en las respuestas a `call_8b62993243ea40a4907c46343a664a6e`. Confirmó «Cualquiera de los dos socios» para archivar legado sin autor en `call_2c49c41d6e4c4294a3fb7011c66ded9f`.
 
 Usuario aprobó SPEC-1/PLAN-1 y candidato con un ajuste expreso: usar un ícono en el control individual de archivo, respuesta a `call_863e35921c8947bebb81dacfc2ef3909`. Eligió CONTINUOUS en `call_170a48b1e409416886debb5dd78bcbbc`. Designer actualizó/revalidó ese ajuste y devolvió DESIGN_APPROVED/STOPPED; permisos y alcance no cambian. Autoridad de ejecución y entrega local en task.md.
+
+SPEC-2 incorpora únicamente el ajuste de apertura común de Kanban/Tabla elegido por el usuario: «Abrir ficha con comentarios (recomendado)», respuesta a `call_7d20cf8b108141d1967afb86d82ddbca`. La composición aprobada de ficha y el resto del alcance permanecen; no hay tareas ni permisos remotos nuevos. Esta decisión aprueba el delta reflejado en PLAN-2; se conserva evidencia válida de WU-001.

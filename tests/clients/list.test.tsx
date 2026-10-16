@@ -8,6 +8,7 @@ import { saveClient } from "@/app/(crm)/clientes/actions";
 import { parseFilters } from "@/lib/clients/filters";
 import { confirmed } from "./fixture";
 vi.mock("@/app/(crm)/clientes/actions", () => ({ moveClient: vi.fn(), saveClient: vi.fn(), deleteClient: vi.fn() }));
+vi.mock("@/app/(crm)/clientes/comment-actions", () => ({ loadClientComments: vi.fn(async () => ({ kind: "found", rows: [], next: null, userId: "11111111-1111-4111-8111-111111111111" })), createClientComment: vi.fn(), archiveClientComment: vi.fn() }));
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
@@ -43,12 +44,26 @@ describe("client table and filter accessibility", () => {
     opener.focus(); await user.keyboard("{Enter}");
     const dialog = screen.getByRole("dialog", { name: "Confirmado" });
     expect(within(dialog).getByText("Empresa", { selector: "dd" })).toBeVisible(); expect(within(dialog).getByText("Servicios")).toBeVisible();
-    expect(within(dialog).getByText("Notas completas")).toBeVisible();
+    expect(await within(dialog).findByText("Todavía no hay comentarios.")).toBeVisible();
+    expect(within(dialog).queryByText("Notas completas")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Enviar correo a Confirmado" })).toHaveAttribute("href", "mailto:persona%40example.com");
     expect(within(dialog).getByRole("link", { name: "Llamar a Confirmado" })).toHaveAttribute("href", "tel:+541112345678");
     expect(within(dialog).getByRole("link", { name: "Editar Confirmado" })).toHaveAttribute("href", expect.stringContaining("returnTo="));
     expect(screen.queryByRole("dialog", { name: "Editar cliente" })).toBeNull();
     await user.keyboard("{Escape}"); expect(screen.queryByRole("dialog")).toBeNull(); expect(opener).toHaveFocus();
+  });
+  it("closes clean details on traversal and restores the destination view without replacing its state", async () => {
+    const user = userEvent.setup(), destination = { destination: "kanban", preserved: true };
+    window.history.replaceState(destination, "", "/clientes");
+    render(<ClientList result={{ kind: "found", filters: { ...filters, view: "kanban" }, rows: [confirmed], count: 1 }} />);
+    await user.click(screen.getByRole("radio", { name: "Tabla" }));
+    await user.click(screen.getByRole("button", { name: "Ver Confirmado" }));
+    expect(screen.getByRole("dialog", { name: "Confirmado" })).toBeVisible();
+    act(() => { window.history.replaceState(destination, "", "/clientes"); window.dispatchEvent(new PopStateEvent("popstate", { state: destination })); });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Kanban" })).toHaveAttribute("aria-checked", "true");
+    expect(window.location.pathname + window.location.search).toBe("/clientes");
+    expect(window.history.state).toEqual(destination);
   });
   it("does not offer contact actions for absent or invalid data", async () => {
     render(<ClientList result={{ kind: "found", filters, rows: [{ ...confirmed, email: "bad\n@example.com", phone: "javascript:123456" }], count: 1 }} />);
@@ -64,7 +79,7 @@ describe("client table and filter accessibility", () => {
     await user.click(opener);
     await user.click(screen.getByRole("link", { name: "Editar Confirmado" }));
     expect(screen.getByRole("dialog", { name: "Editar cliente" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Notas")).toHaveValue("Notas completas");
+    expect(screen.queryByLabelText("Notas")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toHaveValue("persona@example.com");
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     await screen.findByRole("button", { name: "Ver Confirmado" });

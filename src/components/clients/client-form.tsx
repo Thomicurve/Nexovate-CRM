@@ -13,11 +13,11 @@ import type { DeleteIntent, DeleteResult } from "@/lib/clients/delete";
 import { ClientConfirmation } from "./client-confirmation";
 import { focusAfterLoading, useClientFormExit, type ExitGuard } from "./client-form-exit";
 
-type FormValues = { name: string; company: string; email: string; phone: string; rubro: string; notes: string;
+type FormValues = { name: string; company: string; email: string; phone: string; rubro: string; initial_comment: string;
   contact_at: string; meeting_at: string; status: string };
 type Draft = { values: FormValues; originalContact: string; originalMeeting: string };
 const initialValues = (client: Client | undefined, contact: string): FormValues => ({ name: client?.name ?? "", company: client?.company ?? "",
-  email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", notes: client?.notes ?? "",
+  email: client?.email ?? "", phone: client?.phone ?? "", rubro: client?.rubro ?? "", initial_comment: "",
   contact_at: client ? utcToLocal(client.contact_at) : contact,
   meeting_at: client?.meeting_at ? utcToLocal(client.meeting_at) : "", status: client?.status ?? "Contactado" });
 
@@ -148,8 +148,7 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
     const current = state.confirmed;
     const rows = [["Nombre", values.name, current.name], ["Empresa", values.company, current.company], ["Rubro", values.rubro, current.rubro],
       ["Email", values.email, current.email], ["Teléfono", values.phone, current.phone], ["Estado", values.status, current.status],
-      ["Contacto", values.contact_at, utcToLocal(current.contact_at)], ["Reunión", values.meeting_at, current.meeting_at ? utcToLocal(current.meeting_at) : null],
-      ["Notas", values.notes, current.notes]];
+      ["Contacto", values.contact_at, utcToLocal(current.contact_at)], ["Reunión", values.meeting_at, current.meeting_at ? utcToLocal(current.meeting_at) : null]];
     return <section className={embedded ? styles.modalForm : styles.formPanel}>
       <h2>Este cliente cambió</h2><p role="alert">Tus cambios no se guardaron. Compará tu borrador con los datos actuales.</p>
       <p className={styles.hint}>Versión confirmada: {current.version}</p>
@@ -196,12 +195,13 @@ function FormBody({ client, requestId, initialContact, returnTo, action, deleteA
             </select>{frozen && <input type="hidden" name="status" value={values.status} />}
             {state.errors?.status && <p id="status-error" className={styles.error}>{state.errors.status}</p>}</div>}
         </div></fieldset>
-        <fieldset className={styles.formGroup}><legend>Notas</legend>
-          <div className={styles.field}><label htmlFor="notes">Notas</label>
-            <textarea id="notes" name="notes" value={values.notes} maxLength={5000} readOnly={frozen} disabled={disabled}
-              onChange={(event) => change("notes", event.target.value)} aria-invalid={Boolean(state.errors?.notes)} aria-describedby={state.errors?.notes ? "notes-error" : undefined} />
-            {state.errors?.notes && <p id="notes-error" className={styles.error}>{state.errors.notes}</p>}</div>
-        </fieldset>
+        {!client ? <fieldset className={styles.formGroup}><legend>Comentario inicial</legend>
+          <div className={styles.field}><label htmlFor="initial_comment">Comentario inicial (opcional)</label>
+            <textarea id="initial_comment" name="initial_comment" value={values.initial_comment} readOnly={frozen} disabled={disabled}
+              onChange={(event) => change("initial_comment", event.target.value)} aria-invalid={Boolean(state.errors?.initial_comment)} aria-describedby={`initial-comment-help${state.errors?.initial_comment ? " initial_comment-error" : ""}`} />
+            <p id="initial-comment-help" className={styles.hint}>Hasta 5000 caracteres. Se guarda junto con el cliente y tu autoría.</p>
+            {state.errors?.initial_comment && <p id="initial_comment-error" className={styles.error}>{state.errors.initial_comment}</p>}</div>
+        </fieldset> : <p className={styles.hint}>Podés consultar y agregar comentarios desde la ficha del cliente.</p>}
         {state.message && state.status !== "invalid" && <p className={styles.error} role="alert">{state.message}</p>}
         <div className={styles.actions}><button type="submit" disabled={disabled}>
           {state.status === "success" ? "Guardado" : pending ? "Guardando…" : frozen ? "Reintentar" : client ? "Guardar cambios" : "Crear cliente"}

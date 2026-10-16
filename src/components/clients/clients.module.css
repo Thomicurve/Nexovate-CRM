@@ -184,16 +184,51 @@
 .filterPanel .stateOptions .selectedState { border-color: var(--focus); background: var(--elevated); }
 .viewSwitch { border-color: var(--field-border); }
 .viewSwitch [role="radio"] { outline-color: var(--focus) !important; }
-.readDetail { width: min(443px, calc(100vw - 40px)); max-width: none; max-height: calc(100dvh - 40px); padding: 20px; color: var(--foreground); background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; }
-.readDetail[open] { display: flex; flex-direction: column; gap: 16px; }
+.readDetail { width: min(760px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); padding: 28px; color: var(--foreground); background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; overflow-y: auto; }
+.readDetail[open] { display: flex; flex-direction: column; gap: 20px; }
 .readDetail::backdrop { background: rgb(8 14 26 / 75%); }
 .detailHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-shrink: 0; }
 .detailHeader h2 { margin: 0; font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
-.detailFields { display: grid; gap: 16px; margin: 0; min-height: 0; overflow-y: auto; }
+.detailFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; flex-shrink: 0; }
 .detailFields dt { font-size: 13px; color: var(--secondary); }
-.detailFields dd { margin: 6px 0 0; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detailFields dd { margin: 4px 0 0; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .detailFields a { color: var(--focus); display: inline-flex; align-items: center; min-height: 44px; }
 .detailEdit { display: flex; align-items: center; justify-content: center; min-height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 6px; background: var(--action); color: white; text-decoration: none; font-size: 14px; font-weight: 500; }
+.comments { display: grid; gap: 16px; border-top: 1px solid var(--border); padding-top: 20px; min-width: 0; }
+.comments h3 { margin: 0; font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.commentsHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.commentHelp { font-size: 13px; color: var(--secondary); overflow-wrap: anywhere; }
+.commentComposer { display: grid; gap: 8px; min-width: 0; }
+.commentComposer label { font-size: 16px; font-weight: 500; }
+.commentComposer textarea { width: 100%; min-height: 108px; padding: 12px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 16px; resize: vertical; }
+.commentComposerActions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.commentComposerActions button, .commentSecondary { min-height: 44px; padding: 10px 16px; border-radius: 6px; font: inherit; font-size: 14px; font-weight: 500; }
+.commentSecondary { justify-self: start; border: 1px solid var(--field-border); background: var(--surface); color: var(--foreground); }
+.commentList { list-style: none; padding: 0; margin: 0; min-width: 0; }
+.commentRow { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px 12px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.commentIdentity { min-width: 0; display: grid; align-content: start; gap: 4px; }
+.commentIdentity strong { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.commentBody { grid-column: 1 / -1; font-size: 16px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.commentRow > .commentHelp { grid-column: 1 / -1; }
+.commentArchive { position: relative; grid-column: 2; grid-row: 1; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--field-border); border-radius: 6px; background: var(--surface); color: var(--secondary); }
+.archiveTooltip { display: none; position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 2; width: max-content; padding: 6px 8px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--elevated); color: var(--foreground); font-size: 13px; pointer-events: none; }
+.commentArchive:hover .archiveTooltip, .commentArchive:focus-visible .archiveTooltip { display: block; }
+.commentArchive:disabled, .commentSecondary:disabled { opacity: 0.65; }
+.commentArchive:focus-visible, .commentSecondary:focus-visible, .commentComposer textarea:focus-visible, .comments h3:focus-visible, .detailEdit:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.commentFeedback { display: grid; gap: 8px; color: var(--foreground); border-left: 3px solid #fb7185; padding-left: 12px; }
+.legacyComment .commentArchive { grid-column: 1; grid-row: 3; }
+.legacyComment .archiveTooltip { left: 0; right: auto; }
+@media (max-width: 600px) {
+  .readDetail { padding: 16px; }
+  .detailFields { grid-template-columns: minmax(0, 1fr); }
+  .commentsHeader, .commentComposerActions { flex-direction: column; align-items: stretch; gap: 8px; }
+  .commentsHeader button, .commentComposerActions button { width: 100%; }
+  .commentRow { grid-template-columns: minmax(0, 1fr); }
+  .commentArchive { grid-column: 1; grid-row: 2; }
+  .commentBody { grid-row: 3; }
+  .legacyComment .commentBody { grid-row: 2; }
+  .commentArchive .archiveTooltip { left: 0; right: auto; }
+}
 @media (max-width: 767px) {
   .destination { margin: 0; width: 100%; padding-inline: 4px; }
   .listHeading h1 { font-size: 28px; }

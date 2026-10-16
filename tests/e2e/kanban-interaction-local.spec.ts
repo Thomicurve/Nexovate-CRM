@@ -28,14 +28,16 @@ async function activateKeyboardDrag(page: Page, handle: Locator) {
 }
 let server: ViteDevServer;
 test.beforeAll(async () => {
+  test.setTimeout(90_000); // Local source preparation only; interaction and assertion limits are unchanged.
   server = await createServer({ configFile: false, cacheDir: "node_modules/.vite-crm-modal",
     optimizeDeps: { noDiscovery: true, holdUntilCrawlEnd: false, include: ["react", "react/jsx-runtime", "react-dom", "react-dom/client", "motion/react", "@dnd-kit/core"] },
     server: { host: "127.0.0.1", port: 3113, strictPort: true }, resolve: { alias: { "@": resolve("src") } }, plugins: [react(), {
       name: "local-modal-boundaries", enforce: "pre",
-      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || id.endsWith("/clientes/actions") ? `\0${id}` : undefined; },
+      resolveId(id) { return ["next/link", "next/navigation"].includes(id) || (id.endsWith("/clientes/actions") || id.endsWith("/clientes/comment-actions")) ? `\0${id}` : undefined; },
       load(id) {
         if (id === "\0next/navigation") return "export const useRouter=()=>window.crmHarness;";
         if (id === "\0next/link") return "import {createElement} from 'react'; export default function Link({prefetch,onNavigate,...props}){return createElement('a',props)}";
+        if (id.endsWith("/clientes/comment-actions")) return "export async function loadClientComments(){return {kind:'found',rows:[],next:null,userId:'11111111-1111-4111-8111-111111111111'}} export async function createClientComment(){throw new Error('Comment writes disabled')} export const archiveClientComment=createClientComment;";
         if (id.endsWith("/clientes/actions")) return "export const moveClient=async intent=>(await fetch('/__move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(intent)})).json(); export async function saveClient(){throw new Error('Saves disabled in kanban harness')} export const deleteClient=saveClient;";
       },
       configureServer(vite) { vite.middlewares.use(async (request, response, next) => {
@@ -47,9 +49,29 @@ test.beforeAll(async () => {
       }); },
     }] }); await server.listen();
   // Prepare source transforms before browser startup; interaction assertions retain their own limits.
-  for (const path of ["/tests/e2e/client-modal-harness.tsx", "/src/components/clients/client-list.tsx", "/src/components/clients/client-kanban.tsx", "/src/components/clients/client-form.tsx", "/src/components/clients/clients.module.css", "/src/components/ui/notifications.module.css", "/src/lib/clients/filters.ts", "/src/app/globals.css"]) await server.transformRequest(path);
+  for (const path of ["/tests/e2e/client-modal-harness.tsx", "/src/components/clients/client-list.tsx", "/src/components/clients/client-kanban.tsx",
+    "/src/components/clients/client-details.tsx", "/src/components/clients/client-comments.tsx", "/src/components/clients/client-form.tsx",
+    "/src/components/clients/clients.module.css", "/src/components/ui/notifications.module.css", "/src/lib/clients/filters.ts", "/src/app/globals.css"]) await server.transformRequest(path);
 });
 test.afterAll(async () => { await server?.close(); });
+
+test("reduced motion supports Kanban comments, keyboard close, editing and drag", async ({ page }) => {
+  test.setTimeout(90_000); const data = await fixtures(page); await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" }); await page.goto("/clientes");
+  const open = card(page).getByRole("button", { name: "Abrir Confirmado" });
+  await open.click(); const detail = page.getByRole("dialog", { name: "Confirmado", exact: true });
+  await expect(detail.getByRole("textbox", { name: "Nuevo comentario" })).toBeVisible();
+  const close = detail.getByRole("button", { name: "Cerrar", exact: true }); await expect(close).toBeFocused();
+  await page.keyboard.press("Enter"); await expect(detail).toHaveCount(0); await expect(open).toBeFocused();
+  await page.keyboard.press("Enter"); await expect(detail).toBeVisible();
+  await detail.getByRole("link", { name: "Editar Confirmado" }).click();
+  const editor = page.getByRole("dialog", { name: "Editar cliente" }); await expect(editor.getByLabel("Email")).toHaveValue("persona@example.com");
+  await editor.getByRole("button", { name: "Cancelar", exact: true }).click(); await expect(open).toBeFocused();
+  const handle = card(page).getByRole("button", { name: "Arrastrar cliente Confirmado" });
+  await activateKeyboardDrag(page, handle); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Space");
+  await expect(page.getByText("Estado actualizado", { exact: true })).toBeVisible(); expect(data.moves[0].to).toBe("Interesado");
+  await expect(page.getByRole("dialog")).toHaveCount(0); expect(data.forbidden).toEqual([]); expect(data.errors).toEqual([]);
+});
 
 async function fixtures(page: Page) {
   let client: Client = { ...confirmed, email: "persona@example.com", notes: "Datos completos" }, uncertain = false;
@@ -87,7 +109,7 @@ async function pointerDrag(page: Page, from: { x: number; y: number }, to: { x: 
   if (cancel) await page.keyboard.press("Escape"); await page.mouse.up();
 }
 
-test("cards open editable data while drag, cancel, selection and modifiers preserve move intentions", async ({ page }) => {
+test("cards open comments by click and keyboard before editing, with focus returning to the card", async ({ page }) => {
   test.setTimeout(90_000); const data = await fixtures(page); await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto("/clientes?nombre=Confirmado", { waitUntil: "commit" });
   await page.waitForLoadState("load"); const open = card(page).getByRole("button", { name: "Abrir Confirmado" });
@@ -96,12 +118,25 @@ test("cards open editable data while drag, cancel, selection and modifiers prese
   const baseline = data.reads.length, url = page.url();
   for (const keyboard of [false, true]) {
     if (keyboard) { await open.focus(); await page.keyboard.press("Space"); } else await open.click();
+    const detail = page.getByRole("dialog", { name: "Confirmado", exact: true });
+    await expect(detail).toBeVisible(); await expect(detail.getByRole("button", { name: "Cerrar", exact: true })).toBeFocused();
+    await expect(detail.getByRole("textbox", { name: "Nuevo comentario" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Editar cliente" })).toHaveCount(0);
+    await detail.getByRole("button", { name: "Cerrar", exact: true }).click(); await expect(open).toBeFocused();
+    await open.click(); await detail.getByRole("link", { name: "Editar Confirmado" }).click();
     await expect(page.getByRole("dialog", { name: "Editar cliente" })).toBeVisible();
-    await expect(page.getByLabel("Notas")).toHaveValue("Datos completos");
+    await expect(page.getByLabel("Notas")).toHaveCount(0);
     await expect(page.getByLabel("Email")).toHaveValue("persona@example.com");
     await page.getByRole("button", { name: "Cancelar" }).click(); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(open).toBeFocused();
   }
   expect(data.reads).toHaveLength(baseline); await expect(page).toHaveURL(url);
+  expect(data.moves).toEqual([]); expect(data.forbidden).toEqual([]); expect(data.errors).toEqual([]);
+});
+
+test("drag, cancel, selection and modifiers preserve move intentions without opening details", async ({ page }) => {
+  test.setTimeout(90_000); const data = await fixtures(page); await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto("/clientes?nombre=Confirmado");
+  const open = card(page).getByRole("button", { name: "Abrir Confirmado" }); await expect(open).toBeVisible();
   await open.click({ modifiers: ["Control"] }); await open.click({ button: "middle" });
   await card(page).getByText(/^Contacto:/).evaluate((element) => { const range = document.createRange(); range.selectNodeContents(element); getSelection()!.addRange(range); });
   await open.click(); await expect(page.getByRole("dialog")).toHaveCount(0); await page.evaluate(() => getSelection()!.removeAllRanges());
@@ -152,7 +187,8 @@ test("mobile touch scrolling does not open cards; menu and keyboard destinations
   await page.goto("/clientes"); const visible = page.getByRole("radiogroup", { name: "Estado visible" });
   await expect(visible.getByRole("radio", { name: /^Contactado,/ })).toHaveAttribute("aria-checked", "true"); expect(await visible.getByRole("radio").evaluateAll((options) => options.map((option) => option.getAttribute("aria-label")?.split(",")[0]))).toEqual(order);
   await visible.getByRole("radio", { name: /^Contactado,/ }).click(); const open = card(page).getByRole("button", { name: "Abrir Confirmado" });
-  await open.tap(); await expect(page.getByRole("dialog")).toBeVisible(); await page.getByRole("button", { name: "Cancelar" }).tap(); await expect(page.getByRole("dialog")).toHaveCount(0);
+  await open.tap(); const detail = page.getByRole("dialog", { name: "Confirmado", exact: true }); await expect(detail).toBeVisible();
+  await detail.getByRole("button", { name: "Cerrar", exact: true }).tap(); await expect(detail).toHaveCount(0);
   await open.scrollIntoViewIfNeeded(); const box = await open.boundingBox(), before = await page.evaluate(() => scrollY);
   const cdp = await context.newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box!.x + 80, y: box!.y + 80 }] });
@@ -217,7 +253,7 @@ test("stage selection, card variants and desktop menus remain usable across supp
     const full = card(page).getByRole("button", { name: `Abrir ${longName}` });
     await expect(full.getByText(company, { exact: true })).toBeVisible();
     await expect(full.getByText(/^Contacto:/)).toBeVisible(); await expect(full.getByText(/^Reunión:/)).toBeVisible();
-    for (const label of ["Servicios", "Notas", "Email", "Teléfono"]) await expect(full.getByText(label, { exact: true })).toBeVisible();
+    for (const label of ["Servicios", "Email", "Teléfono"]) await expect(full.getByText(label, { exact: true })).toBeVisible();
     const incomplete = page.getByRole("button", { name: "Abrir Sin opcionales" });
     await expect(incomplete.getByText(/Sin empresa|Sin informar|Reunión:|Notas|Email|Teléfono/)).toHaveCount(0);
     const menu = page.getByRole("button", { name: "Ordenar etapa Interesado" });

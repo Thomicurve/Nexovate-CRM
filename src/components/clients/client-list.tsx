@@ -23,7 +23,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const router = useRouter();
   const [locked, setLocked] = useState(false), [result, setResult] = useState(incoming);
   const [modal, setModal] = useState<{ client?: Client; requestId: string; initialContact: string } | null>(null);
-  const [detail, setDetail] = useState<{ client: Client; opener: HTMLButtonElement } | null>(null);
+  const [detail, setDetail] = useState<{ client: Client; opener: HTMLElement } | null>(null);
   const [seenIncoming, setSeenIncoming] = useState(incoming);
   const [view, setView] = useState(incoming.kind === "invalid" ? "kanban" : incoming.filters.view);
   const [refreshing, setRefreshing] = useState(false), [refreshError, setRefreshError] = useState(false);
@@ -72,14 +72,15 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
   const returnTo = listPath(applied);
   useEffect(() => {
     const restoreView = () => {
-      // The mounted editor guards traversal before this consumer; never overwrite
+      // The mounted editor or comment draft guards traversal before this consumer; never overwrite
       // the destination or Next's history state after an explicit discard.
-      if (modal) {
+      if (modal || detail) {
         setModal(null);
+        setDetail(null);
         setView(new URLSearchParams(window.location.search).get("vista") === "tabla" ? "tabla" : "kanban");
         return;
       }
-      if (locked || detail) { window.history.replaceState(window.history.state, "", returnTo); return; }
+      if (locked) { window.history.replaceState(window.history.state, "", returnTo); return; }
       setView(new URLSearchParams(window.location.search).get("vista") === "tabla" ? "tabla" : "kanban");
     };
     window.addEventListener("popstate", restoreView);
@@ -145,7 +146,7 @@ export function ClientList({ result: incoming }: { result: ListResult }) {
     {result.kind === "out_of_range" && <div className={styles.listState}><p>Esta página ya no tiene resultados.</p>
       <div className={styles.actions}><Link href={listPath(applied, 1)}>Volver a la primera página</Link></div></div>}
     <div key={view} className={styles.viewContent}>
-    {result.kind === "found" && applied.view === "kanban" && <ClientKanban rows={result.rows} returnTo={returnTo} onLock={setLocked} onEdit={beginModal} />}
+    {result.kind === "found" && applied.view === "kanban" && <ClientKanban rows={result.rows} returnTo={returnTo} onLock={setLocked} onRead={(client, opener) => setDetail({ client, opener })} />}
     {result.kind === "found" && (result.rows.length ? applied.view === "tabla" && <ClientTable rows={result.rows} filters={applied} disabled={disabled}
       onRead={(client, opener) => setDetail({ client, opener })} /> : <div className={styles.listState}>
         <p>{result.count > 0 ? "Esta página ya no tiene clientes." : active ? "No hay clientes que coincidan con los filtros." : "Todavía no hay clientes."}</p>

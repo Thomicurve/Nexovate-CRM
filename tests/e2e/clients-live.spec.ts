@@ -211,7 +211,7 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun || f
       stage = "owner RPC stale-version HTTP contract";
       const staleRpcRequest = request(0, randomUUID(), id);
       const staleRpc = await users[0].rpc("update_client", { p_request_id: staleRpcRequest, p_client_id: id,
-        p_expected_version: 2, p_payload: { notes: "Edición obsoleta" } });
+        p_expected_version: 2, p_payload: { company: "Edición obsoleta" } });
       expect(staleRpc.status).toBe(409);
       expect(staleRpc.error?.code).toBe("PT409");
       expect(staleRpc.error?.message).toBe("client_version_conflict");
@@ -219,22 +219,22 @@ if (process.env.CRM_CLIENTS_LIVE_WRITE === "1" || kanbanRun || dashboardRun || f
       requests.find((row) => row.actor === actorIds[0] && row.id === staleRpcRequest)!.rolledBack = true;
       console.log("Observed live stale RPC: HTTP409/PT409/client_version_conflict, null data; rollback confirmed.");
       stage = "owner stale-version conflict";
-      await page.getByLabel("Notas").fill("Edición obsoleta");
+      await page.getByLabel("Empresa").fill("Edición obsoleta");
       const staleRequest = request(0, await page.locator('[name="request_id"]').inputValue(), id);
       await page.getByRole("button", { name: "Guardar cambios" }).click();
       await expect(page.locator('section [role="alert"]')).toHaveText("Este cliente se actualizó mientras lo editabas.");
       await expect(page.getByText("Versión confirmada: 3")).toBeVisible();
-      expect((await current(id)).notes === null).toBe(true);
+      expect((await current(id)).company === null).toBe(true);
       requests.find((row) => row.actor === actorIds[0] && row.id === staleRequest)!.rolledBack = true;
       stage = "owner conscious edit";
       await page.getByRole("button", { name: "Volver a editar" }).click();
-      await page.getByLabel("Notas").fill("Edición consciente confirmada");
+      await page.getByLabel("Empresa").fill("Edición consciente confirmada");
       request(0, await page.locator('[name="request_id"]').inputValue(), id);
       await page.getByRole("button", { name: "Guardar cambios" }).click();
       await expect(page).toHaveURL(new RegExp(`/clientes${feedbackRun ? "\\?nombre=" : "$"}`));
       await expect(page.getByText("Cliente actualizado", { exact: true })).toBeVisible();
       expect((await current(id)).version).toBe(4);
-      expect((await current(id)).notes === "Edición consciente confirmada").toBe(true);
+      expect((await current(id)).company === "Edición consciente confirmada").toBe(true);
       stage = "partner creation and replay";
       const secondId = request(1), literalName = ".*+?^${}()|[]\\%_", payload = { name: `${prefix}-partner${literalName}` };
       const second = await users[1].rpc("create_client", { p_request_id: secondId, p_payload: payload });

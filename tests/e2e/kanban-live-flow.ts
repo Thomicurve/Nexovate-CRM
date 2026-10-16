@@ -128,7 +128,7 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     // The browser keeps its old version while the other authenticated member updates it.
     const partnerRequest = request(1, randomUUID(), id);
     const partner = await users[1].rpc("update_client", { p_request_id: partnerRequest, p_client_id: id,
-      p_expected_version: committed.version, p_payload: { status: "Interesado", notes: "Fixture: edición del socio" } });
+      p_expected_version: committed.version, p_payload: { status: "Interesado", company: "Fixture: edición del socio" } });
     expect(partner.error).toBeNull(); remember(partner.data);
     await keyboardMove(["ArrowLeft"]);
     await expect(board.getByRole("alert")).toContainText("versión confirmada"); assertTracked();
@@ -139,7 +139,7 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     expect(staleRpc.status).toBe(409); expect(staleRpc.error?.code).toBe("PT409");
     expect(staleRpc.error?.message).toBe("client_version_conflict"); expect(staleRpc.data).toBeNull();
     requests.find((row) => row.actor === actorIds[0] && row.id === stale.requestId)!.rolledBack = true;
-    saved = await current(id); expect(saved.version === committed.version + 1 && saved.status === "Interesado" && saved.notes === "Fixture: edición del socio").toBe(true);
+    saved = await current(id); expect(saved.version === committed.version + 1 && saved.status === "Interesado" && saved.company === "Fixture: edición del socio").toBe(true);
     await expect(page.getByRole("link", { name: "Volver a editar" })).toBeVisible();
     await expect(column("Interesado").getByText(owner.name, { exact: true })).toBeVisible();
     await page.reload();
@@ -169,11 +169,13 @@ export async function runKanbanLiveFlow({ page, prefix, users, actorIds, request
     expect((await column("Cerrado").boundingBox())!.width).toBeCloseTo(358, 0);
     expect((await board.locator(`[data-client="${id}"]`).boundingBox())!.width).toBeCloseTo(326, 0);
     await page.getByRole("button", { name: `Abrir ${owner.name}`, exact: true }).click();
+    await page.getByRole("link", { name: `Editar ${owner.name}`, exact: true }).click();
     await page.getByRole("button", { name: "Cancelar", exact: true }).click();
     await expect(page).toHaveURL(/\/clientes\?/); await expect(board).toBeVisible();
     expect([...new URL(page.url()).searchParams]).toEqual([...params]);
     await page.getByRole("combobox", { name: "Estado visible" }).selectOption("Cerrado");
     await page.getByRole("button", { name: `Abrir ${owner.name}`, exact: true }).click();
+    await page.getByRole("link", { name: `Editar ${owner.name}`, exact: true }).click();
     await page.getByLabel("Estado", { exact: true }).selectOption("Interesado");
     request(0, await page.locator('[name="request_id"]').inputValue(), id); allowManualEdit = true;
     await page.getByRole("button", { name: "Guardar cambios" }).click();
