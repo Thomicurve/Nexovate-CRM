@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { runCommentConcurrency } from "./sql-comment-concurrency.mjs";
 
 const first = "11111111-1111-4111-8111-111111111111";
 const second = "22222222-2222-4222-8222-222222222222";
@@ -56,12 +57,13 @@ export async function runConcurrency({ sql, session }) {
     SELECT test_support.assert_true(NOT EXISTS(SELECT 1 FROM public.client_milestones WHERE client_id='${client.id}' AND status='Reunión agendada'), 'loser leaves no milestone');
     SELECT test_support.assert_true(NOT EXISTS(SELECT 1 FROM crm_private.client_requests WHERE request_id='10000000-0000-4000-8000-000000000003'), 'loser leaves no ledger');`);
 
-  const replayQuery = "SELECT public.create_client('10000000-0000-4000-8000-000000000004','{\"name\":\"Replay concurrente\"}')";
+  const replayQuery = "SELECT public.create_client('10000000-0000-4000-8000-000000000004','{\"name\":\"Replay concurrente\",\"initial_comment\":\"One initial\"}')";
   const [original, replay] = await overlap("wu004-replay", first, replayQuery, first, replayQuery);
   assert.equal(original.status, 0, original.stderr);
   assert.equal(replay.status, 0, replay.stderr);
   assert.deepEqual(response(original.stdout), response(replay.stdout));
   const replayId = response(original.stdout).id;
+  sql(`SELECT test_support.assert_true((SELECT count(*)=1 FROM public.client_comments WHERE client_id='${replayId}'), 'concurrent initial comment exactly once');`);
   sql(`SELECT test_support.assert_true((SELECT count(*)=1 FROM public.clients WHERE id='${replayId}'), 'concurrent replay one client');
     SELECT test_support.assert_true((SELECT count(*)=1 FROM public.client_transitions WHERE client_id='${replayId}'), 'concurrent replay one event');
     SELECT test_support.assert_true((SELECT count(*)=1 FROM public.client_milestones WHERE client_id='${replayId}'), 'concurrent replay one milestone');
@@ -98,4 +100,5 @@ export async function runConcurrency({ sql, session }) {
   assert.match(deleteLoser.stderr, /PT409: client_version_conflict/);
   sql(`SELECT test_support.assert_true((SELECT deleted_at IS NULL AND version=2 AND name='Current' FROM public.clients WHERE id='${inverse.id}'),'stale delete retains updated client');`);
   console.log("PASS WU002 delete replay and both delete/update concurrency orders");
+  await runCommentConcurrency({ sql, overlap });
 }

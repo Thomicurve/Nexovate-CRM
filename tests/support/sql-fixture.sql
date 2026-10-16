@@ -2,11 +2,12 @@
 CREATE ROLE anon NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE ROLE authenticated NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE SCHEMA auth;
-CREATE TABLE auth.users (id uuid PRIMARY KEY);
-INSERT INTO auth.users VALUES
+CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+INSERT INTO auth.users(id) VALUES
   ('11111111-1111-4111-8111-111111111111'),
   ('22222222-2222-4222-8222-222222222222'),
   ('33333333-3333-4333-8333-333333333333');
+UPDATE auth.users SET email = CASE WHEN id::text LIKE '1111%' THEN 'first@example.test' ELSE 'second@example.test' END;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
   SELECT coalesce(
     nullif(current_setting('request.jwt.claim.sub', true), ''),

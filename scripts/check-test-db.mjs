@@ -81,17 +81,31 @@ try {
   console.log(`${version}; cluster nuevo verificado en loopback, puerto ${port}`);
   sql(readFileSync(join(root, "tests/support/sql-fixture.sql"), "utf8"));
   const migrations = join(root, "supabase/migrations");
+  const tests = readdirSync(join(root, "supabase/tests")).filter((name) => name.endsWith(".sql")).sort();
+  const runTest = (file) => {
+    sql(readFileSync(join(root, "supabase/tests", file), "utf8"));
+    console.log(`PASS ${file}`);
+  };
   if (existsSync(migrations)) {
     for (const file of readdirSync(migrations).filter((name) => name.endsWith(".sql")).sort()) {
+      if (file === "202610160007_client_comments.sql") {
+        // Historical contracts run against their schema. Seed BEFORE the real backfill.
+        console.log("Historical schema phase: replaced authorization/notes contracts (001/003).");
+        if (!process.argv.includes("--concurrency-only")) tests.filter((name) => /^(001|003)_/.test(name)).forEach(runTest);
+        sql(`INSERT INTO public.clients(id,name,notes,deleted_at) VALUES
+          ('80000000-0000-4000-8000-000000000001','Legacy',E'  Exacto\\nsegunda línea  ',NULL),
+          ('80000000-0000-4000-8000-000000000002','Deleted legacy','Borrado',clock_timestamp()),
+          ('80000000-0000-4000-8000-000000000003','Empty legacy','   ',NULL);`);
+      }
       sql(readFileSync(join(migrations, file), "utf8"));
     }
   }
-  const tests = readdirSync(join(root, "supabase/tests")).filter((name) => name.endsWith(".sql")).sort();
   if (!tests.length) throw new Error("No hay pruebas SQL; no se acepta un falso GREEN");
-  for (const file of process.argv.includes("--concurrency-only") ? [] : tests) {
-    sql(readFileSync(join(root, "supabase/tests", file), "utf8"));
-    console.log(`PASS ${file}`);
-  }
+  for (const file of process.argv.includes("--concurrency-only") ? [] : tests.filter((name) => name >= "008")) runTest(file);
+  // Backfill fixtures have served their purpose; isolate unchanged regression counts.
+  sql("TRUNCATE public.clients CASCADE;");
+  console.log("Final schema phase: unchanged client/schema/metrics/delete regressions (002/004–007).");
+  if (!process.argv.includes("--concurrency-only")) tests.filter((name) => /^(002|004|005|006|007)_/.test(name)).forEach(runTest);
   const session = (source, applicationName) => new Promise((accept) => {
     const child = spawn(exe("psql"), [...connect, "-Atq"], {
       cwd: root, env: { ...env, PGAPPNAME: applicationName }, windowsHide: true,

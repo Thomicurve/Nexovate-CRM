@@ -17,9 +17,26 @@ describe("Buenos Aires instants and form contract", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("validation failed");
     expect(result.payload).toEqual({ name: "Cliente prueba", company: null, email: null, phone: null,
-      rubro: null, notes: null, meeting_at: null });
+      rubro: null, initial_comment: null, meeting_at: null });
     expect(result.mode).toBe("create");
   });
+  it("replaces legacy notes writes with exact optional initial comment on create only", () => {
+    const created = normalizeForm(form({ notes: "old", initial_comment: "  Initial\nexact  " }));
+    expect(created.ok && created.payload.initial_comment).toBe("  Initial\nexact  ");
+    expect(created.ok && created.payload).not.toHaveProperty("notes");
+    const edited = normalizeForm(form({ client_id: clientId, version: "1", status: "Contactado", initial_comment: "ignored", notes: "overwrite" }));
+    expect(edited.ok && edited.payload).not.toHaveProperty("notes");
+    expect(edited.ok && edited.payload).not.toHaveProperty("initial_comment");
+    expect(normalizeForm(form({ initial_comment: "x".repeat(5001) })).ok).toBe(false);
+  });
+  it.each(["\u00a0", "\ufeff", "\u1680", "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a", "\u2028\u2029\u202f\u205f\u3000"])(
+    "omits Unicode-only optional initial text and preserves real content exactly", (whitespace) => {
+      const empty = normalizeForm(form({ initial_comment: whitespace }));
+      expect(empty.ok && empty.payload.initial_comment).toBeNull();
+      const body = `${whitespace}Texto\nexacto${whitespace}`;
+      const real = normalizeForm(form({ initial_comment: body }));
+      expect(real.ok && real.payload.initial_comment).toBe(body);
+    });
   it("preserves seconds on untouched contact/meeting dates and includes edit status", () => {
     const result = normalizeForm(form({ client_id: clientId, version: "7", status: "Cerrado",
       original_contact: "2026-10-07T15:30:42.123Z", meeting_at: "2026-10-08T10:00",

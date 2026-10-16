@@ -23,7 +23,7 @@ const text = (form: FormData, name: string) => typeof form.get(name) === "string
 export function normalizeForm(form: FormData) {
   const errors: Record<string, string> = {};
   const payload: Payload = {};
-  for (const [field, limit] of Object.entries({ name: 200, company: 200, rubro: 120, email: 254, phone: 60, notes: 5000 })) {
+  for (const [field, limit] of Object.entries({ name: 200, company: 200, rubro: 120, email: 254, phone: 60 })) {
     const value = text(form, field);
     payload[field] = value || null;
     if (value.length > limit) errors[field] = `Usá como máximo ${limit} caracteres.`;
@@ -32,6 +32,12 @@ export function normalizeForm(form: FormData) {
   if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errors.email = "Ingresá un email válido.";
   const clientId = text(form, "client_id"), requestId = text(form, "request_id");
   const mode = clientId ? "edit" as const : "create" as const;
+  if (mode === "create") {
+    const initial = form.get("initial_comment");
+    const value = typeof initial === "string" ? initial : "";
+    payload.initial_comment = value.trim() ? value : null;
+    if ([...value].length > 5000) errors.initial_comment = "Usá como máximo 5000 caracteres.";
+  }
   const versionText = text(form, "version"), version = Number(versionText);
   if (!UUID.test(requestId) || clientId && !UUID.test(clientId)) errors.form = "La solicitud no es válida. Recargá el formulario.";
   if (mode === "edit") {

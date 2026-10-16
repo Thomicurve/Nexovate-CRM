@@ -9,7 +9,7 @@ describe("authenticated RPC mutation seam", () => {
     const result = await performSave({ rpc }, form(), latest);
     expect(result.status).toBe("success");
     expect(rpc).toHaveBeenCalledWith("create_client", { p_request_id: requestId,
-      p_payload: { name: "Cliente prueba", company: null, rubro: null, email: null, phone: null, notes: null, meeting_at: null } });
+      p_payload: { name: "Cliente prueba", company: null, rubro: null, email: null, phone: null, initial_comment: null, meeting_at: null } });
   });
   it("sends expected version and status together through atomic update", async () => {
     await performSave({ rpc }, form({ client_id: clientId, version: "1", status: "Cerrado" }), latest);

@@ -142,8 +142,11 @@ valida la membresía en cada llamada, incluidos replays:
 | `update_client` | UUID request/client, `p_expected_version` bigint, objeto JSON parcial |
 | `change_client_status` | UUID request/client, versión esperada, `p_status` del enum |
 
-Payload: `name`, `company`, `rubro`, `email`, `phone`, `notes`, `contact_at`,
-`meeting_at`; actualización también acepta `status`. Todos son strings o null,
+Payload: `name`, `company`, `rubro`, `email`, `phone`, `contact_at`,
+`meeting_at`; actualización también acepta `status`. Alta admite `initial_comment`
+opcional (texto exacto no vacío, hasta 5000 caracteres) en la misma transacción.
+`notes` queda congelado tras la migración007 y no se acepta en nuevas mutaciones.
+Todos son strings o null,
 con restricciones del modelo; `name` y `contact_at` no admiten null. Campos
 omitidos se conservan al editar; null limpia los opcionales. Alta exige nombre,
 inicia siempre Contactado y usa tiempo de servidor si se omite `contact_at`.
@@ -173,6 +176,40 @@ enfocar esas carreras: `npm run test:db -- --concurrency-only`. Una pausa SQL de
 tres segundos mantiene el lock para observar la segunda conexión; no es un mock.
 Fixtures y limitaciones Supabase/JWT anteriores siguen aplicando. Los wrappers
 usan SECURITY DEFINER/search_path vacío; el worker privado no tiene EXECUTE caller.
+
+## Comentarios por cliente — migración007
+
+`202610160007_client_comments.sql` preserva cada nota anterior no vacía exactamente
+una vez, incluso en clientes borrados, como legado sin autor ni fecha original.
+`imported_at` registra sólo la importación. La columna `clients.notes` permanece
+para compatibilidad de respuestas, con un trigger que bloquea escrituras futuras.
+Coordinar aplicación y base antes de aplicar remotamente; estos archivos preparados
+no demuestran que la migración haya sido aplicada al servicio remoto.
+
+Los RPCs `create_client_comment(request_id, client_id, body)` y
+`archive_client_comment(request_id, client_id, comment_id)` derivan actor/tiempo del
+servidor y guardan recibos idempotentes privados. Reintentar conserva la intención,
+incluido el texto; cambiarlo con la misma clave se rechaza. Sólo el autor archiva
+comentarios nuevos; ambos miembros pueden archivar legado. Archivar otra vez conserva
+quién/cuándo archivó primero. No hay edición, borrado ni restauración por API.
+
+`list_client_comments(client_id, archived, before_at, before_id, limit)` devuelve
+`{rows,next}` con cursor por instante completo (sin perder microsegundos) y UUID,
+orden descendente y límite predeterminado30/máximo50. El cursor nulo termina el
+historial. Sólo miembros ven los correos presentados por RPC; no se concede lectura
+general de Auth. Clientes borrados excluyen lectura y nuevas escrituras. Mutaciones
+de comentarios y borrado bloquean la misma fila de cliente para serializar carreras,
+sin modificar versión, estado, hitos ni métricas al comentar/archivar.
+
+`npm run test:db` corre001/003 sobre el esquema anterior (sus contratos de Notas fueron
+reemplazados), siembra notas antes de aplicar la migración real, verifica008, limpia
+explícitamente esos fixtures y corre002/004–007 sobre el esquema final.008 cubre
+permisos actuales, migración, atomicidad, metadata, paginación y ausencia de impacto en
+métricas. Las carreras usan conexiones/PIDs distintos y verifican espera de locks:
+alta inicial/replay, comentarios/replay/colisión, archivo/replay/legado y ambos órdenes
+de creación/archivo contra borrado. Todo ocurre en PostgreSQL17.11 desechable loopback;
+no verifica firma JWT ni el despliegue de Supabase. `npm test -- tests/comments`
+comprueba contratos/acciones y el SDK real con transporte local controlado.
 
 ## Métricas históricas — WU-009
 
