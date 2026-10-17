@@ -76,4 +76,14 @@ Reemplazar Notas por historial activo/archivado en la ficha y el compositor. Kan
 - **Próxima tarea:** ninguna; TASK-001 y TASK-002 DONE.
 - **Continuación:** COMPLETE_WITHIN_AUTHORIZED_LOCAL_SCOPE.
 - **Decisión del usuario:** PLAN-1/SPEC-1 aprobados con ícono de archivo, delta PLAN-2/SPEC-2 de apertura común expresamente elegido y modo CONTINUOUS vigente según referencias anteriores.
-- **Consumido por:** ambas tareas completadas, con verificación/revisión y dos unidades locales entregadas. Sin publicación ni aplicación de la migración al servicio real.
+- **Consumido por:** ambas tareas completadas, con verificación/revisión y dos unidades locales entregadas. Aplicación posterior de la migración al servicio real autorizada y verificada según recibo siguiente; sin publicación de la aplicación.
+
+## Aplicación remota autorizada — 2026-10-16
+
+El usuario autorizó explícitamente «okey, aplica la migracion a supabase». Esta autorización posterior cubre únicamente la migración007 aceptada y su registro, más lecturas de verificación; no autoriza publicación ni nuevos cambios de producto.
+
+Delivery COMPLETED/STOPPED confirmó aplicación en Nexovate CRM, ref `hanblcwiydbwgndjdzok`, PostgreSQL17.11: versión `202610160007`, nombre `client_comments`, DDL/backfill y ledger en una transacción. SQL registrado idéntico al archivo revisado:17.415bytes, SHA256 `4228d779086928894f242a0439f3b7d6b793b274862b54885a491cbc7d077c52`. Historial001–006 conservado; ahora001–007.
+
+Cinco notas convertidas en cinco entradas legadas exactas, sin duplicados ni autor/fecha original inventados. Clientes y huellas de socios/transiciones/hitos/correcciones/solicitudes previas intactos. RLS forzado, triggers, restricciones y permisos verificados: anon sin acceso, authenticated con lectura directa y tres RPC elevados; funciones privadas restringidas. No se crearon fixtures ni comentarios nuevos de clientes reales.
+
+El primer envío falló en una guarda operativa por sustitución de `$'` de JavaScript, sin defecto del SQL revisado; lectura confirmó rollback completo. Segundo envío construido por concatenación, con guardas validadas previamente, aplicado y confirmado. Lectura independiente posterior de Orchestrator corroboró historial, hash/bytes del SQL registrado, cinco legados sin diferencias y RLS/ACL de los tres RPC. HEAD y los tres cambios ajenos permanecen intactos; sin operaciones Git posteriores.

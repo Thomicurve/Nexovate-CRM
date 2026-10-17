@@ -184,7 +184,7 @@
 .filterPanel .stateOptions .selectedState { border-color: var(--focus); background: var(--elevated); }
 .viewSwitch { border-color: var(--field-border); }
 .viewSwitch [role="radio"] { outline-color: var(--focus) !important; }
-.readDetail { width: min(760px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); padding: 28px; color: var(--foreground); background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; overflow-y: auto; }
+.readDetail { width: min(760px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); margin: auto; padding: 28px; color: var(--foreground); background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; overflow-y: auto; }
 .readDetail[open] { display: flex; flex-direction: column; gap: 20px; }
 .readDetail::backdrop { background: rgb(8 14 26 / 75%); }
 .detailHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-shrink: 0; }
